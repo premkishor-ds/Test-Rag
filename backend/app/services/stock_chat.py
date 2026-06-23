@@ -161,37 +161,24 @@ class StockChatService:
         elif detected_symbols:
             active_symbol = detected_symbols[0]
 
-        # Check for general greetings or help prompts
-        clean_msg = message.strip().lower().strip("?.!,")
-        greetings = {"hello", "hi", "hey", "greetings", "good morning", "good afternoon", "good evening", "who are you", "what are you", "help", "yo", "hola", "hi there", "hello there"}
-        if clean_msg in greetings or clean_msg.startswith("hi ") or clean_msg.startswith("hello ") or clean_msg.startswith("hey "):
-            all_stocks = self.db.query(Stock).all()
-            suggestions = [s.symbol for s in all_stocks[:4]]
-            return {
-                "answer": (
-                    "Hello! I am your **EQUITY.AI Research Copilot**. I can help you analyze corporate PDFs, "
-                    "financial reports, and key growth metrics for stocks in our database.\n\n"
-                    "Ask me questions like:\n"
-                    "* *'Should I invest in Netweb?'*\n"
-                    "* *'What are the risks in Knowledge Marine?'*\n"
-                    "* *'Compare SJS vs Aeroflex'*\n\n"
-                    f"**Suggested active tickers:** " + ", ".join(suggestions)
-                ),
-                "sources": [],
-                "scores": None,
-                "comparison_table": None
-            }
-
-        # Suggest nearest stocks if none detected
+        # If no stock symbol is active or detected, run a standard conversational query through Ollama
         if not active_symbol and not detected_symbols:
             all_stocks = self.db.query(Stock).all()
             suggestions = [s.symbol for s in all_stocks[:4]]
+            
+            system_prompt = (
+                "You are EQUITY.AI, a premium AI stock research assistant. "
+                "Answer the user's general conversational or financial question politely, accurately, and concisely. "
+                "At the end of your response, if relevant, remind the user that they can ask you to run deep analyses "
+                f"on specific stocks available in our database (such as {', '.join(suggestions)})."
+            )
+            try:
+                answer = ollama_client.generate_completion(message, system_prompt=system_prompt)
+            except Exception as e:
+                answer = f"Hello! I am your EQUITY.AI Stock Copilot. I encountered an issue querying the model node: {e}"
+                
             return {
-                "answer": (
-                    "I couldn't identify the stock you are referring to. "
-                    "Could you please specify a valid symbol or company name?\n\n"
-                    f"**Suggested active tickers:** " + ", ".join(suggestions)
-                ),
+                "answer": answer,
                 "sources": [],
                 "scores": None,
                 "comparison_table": None

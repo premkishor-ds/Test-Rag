@@ -1,0 +1,24 @@
+# Backend Environment Configuration
+# Copy this file to .env and adjust values for your environment
+
+# PostgreSQL Database
+POSTGRES_SERVER=localhost
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=stock_rag
+POSTGRES_PORT=5432
+
+# Qdrant Vector DB
+QDRANT_URL=http://localhost:6333
+QDRANT_API_KEY=
+
+# Ollama Local LLM (update IP/port to your Ollama server)
+# Use http://localhost:11434 if Ollama runs on the same machine
+# Use http://host.docker.internal:11434 when running inside Docker
+OLLAMA_BASE_URL=https://ai-based-suncoast-rag-search-backend.24livehost.com
+OLLAMA_LLM_MODEL=qwen2.5:14b
+OLLAMA_EMBED_MODEL=nomic-embed-text
+
+# Data paths (relative to backend working directory)
+DATA_DIR=./data
+STOCKS_CSV=./data/stocks.csv

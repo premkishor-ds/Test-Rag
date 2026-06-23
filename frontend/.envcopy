@@ -1,0 +1,7 @@
+# Frontend Environment Configuration
+# Copy this file to .env.local for Next.js to load in development.
+# NEXT_PUBLIC_ prefix makes variables available in the browser.
+
+# Backend API base URL
+# Change to your server IP/hostname when deploying
+NEXT_PUBLIC_API_URL=http://localhost:8000

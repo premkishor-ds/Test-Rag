@@ -54,6 +54,19 @@ export default function StockChat() {
   const [expandedSource, setExpandedSource] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Hide global layout footer on mount, restore on unmount
+  useEffect(() => {
+    const footer = document.querySelector("footer");
+    if (footer) {
+      footer.style.display = "none";
+    }
+    return () => {
+      if (footer) {
+        footer.style.display = "";
+      }
+    };
+  }, []);
+
   // Load sessions from local storage
   useEffect(() => {
     const saved = localStorage.getItem("equity_ai_chat_sessions");
@@ -579,11 +592,6 @@ export default function StockChat() {
               <Send className="h-3.5 w-3.5" />
             </button>
           </form>
-          <div className="max-w-3xl mx-auto text-center mt-2">
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-              EQUITY.AI provides local probabilistic assessments. Cross-reference recommendations before capital commitments.
-            </p>
-          </div>
         </div>
       </div>
     </div>

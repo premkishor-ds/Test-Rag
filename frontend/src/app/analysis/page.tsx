@@ -70,7 +70,7 @@ interface StockArticle {
   fetched_at: string | null;
 }
 
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, BarChart, Bar, CartesianGrid } from "recharts";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, BarChart, Bar, CartesianGrid, PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from "recharts";
 
 interface StockPricePoint {
   date: string;
@@ -464,6 +464,29 @@ export default function StockAnalysis() {
 
               {activeTab === "visualizations" && (
                 <div className="space-y-8 animate-fade-in">
+                  {/* Radar Chart for qualitative metrics comparison */}
+                  <div className="bg-slate-50 dark:bg-[#0B0F19]/40 border border-slate-200 dark:border-[#1E2538] p-5 rounded-xl">
+                    <h4 className="text-xs font-black text-blue-600 dark:text-[#00E5FF] uppercase tracking-wider mb-4">Multi-Dimensional Analysis Profile</h4>
+                    <div className="h-72 w-full text-[10px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RadarChart cx="50%" cy="50%" outerRadius="80%" data={[
+                          { subject: 'Valuation (P/E)', value: report.metrics?.pe_ratio ? Math.max(10, Math.min(100, 100 - report.metrics.pe_ratio)) : 50 },
+                          { subject: 'Efficiency (ROE)', value: report.metrics?.roe ? Math.min(100, report.metrics.roe * 2) : 50 },
+                          { subject: 'Profitability (ROCE)', value: report.metrics?.roce ? Math.min(100, report.metrics.roce * 2) : 50 },
+                          { subject: 'Risk Profile (D/E)', value: report.metrics?.debt_equity !== null ? Math.max(0, 100 - (report.metrics.debt_equity * 40)) : 50 },
+                          { subject: 'Promoter Skin', value: report.metrics?.promoter_holding || 50 },
+                          { subject: 'Sentiment Score', value: report.score || 50 }
+                        ]}>
+                          <PolarGrid stroke="#2D3753" />
+                          <PolarAngleAxis dataKey="subject" stroke="#64748B" />
+                          <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="#64748B" />
+                          <Radar name={selectedSymbol} dataKey="value" stroke="#00E5FF" fill="#00E5FF" fillOpacity={0.25} />
+                          <Tooltip contentStyle={{ backgroundColor: '#0B0F19', borderColor: '#1E2538', color: '#fff' }} />
+                        </RadarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
                   {/* Price History & Moving Averages Chart */}
                   <div className="bg-slate-50 dark:bg-[#0B0F19]/40 border border-slate-200 dark:border-[#1E2538] p-5 rounded-xl">
                     <h4 className="text-xs font-black text-blue-600 dark:text-[#00E5FF] uppercase tracking-wider mb-4">Interactive Price & EMA History</h4>
@@ -489,7 +512,7 @@ export default function StockAnalysis() {
                               </>
                             )}
                           </LineChart>
-                        </ResponsiveContainer>
+                        </>
                       )}
                     </div>
                   </div>
@@ -541,11 +564,44 @@ export default function StockAnalysis() {
             <div className="bg-white border border-slate-200 dark:bg-[#0E121E]/60 dark:border-[#1E2538] rounded-2xl p-6 text-center space-y-5 shadow-sm dark:shadow-xl transition-colors duration-200">
               <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-black tracking-wider flex items-center justify-center space-x-1">
                 <Award className="h-4 w-4 text-blue-600 dark:text-[#00E5FF]" />
-                <span>Deterministic Rating</span>
+                <span>Deterministic Rating & Score Gauge</span>
               </span>
               
-              <h2 className="text-5xl font-black text-blue-600 dark:text-white dark:bg-gradient-to-r dark:from-[#00E5FF] dark:to-[#00F5D4] dark:bg-clip-text dark:text-transparent tracking-tight py-1">
-                {report.rating}
+              {/* Speedometer Gauge */}
+              <div className="flex justify-center items-center h-32 relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: "score", value: report.score, fill: "#00E5FF" },
+                        { name: "remainder", value: 100 - report.score, fill: "#1E2538" }
+                      ]}
+                      dataKey="value"
+                      startAngle={180}
+                      endAngle={0}
+                      innerRadius={45}
+                      outerRadius={60}
+                      paddingAngle={0}
+                    >
+                      <Cell fill="url(#colorScore)" />
+                      <Cell fill="#1A2035" />
+                    </Pie>
+                    <defs>
+                      <linearGradient id="colorScore" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#00E5FF" />
+                        <stop offset="100%" stopColor="#00F5D4" />
+                      </linearGradient>
+                    </defs>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute bottom-2 flex flex-col items-center">
+                  <span className="text-3xl font-black text-slate-900 dark:text-white leading-none">{report.score}</span>
+                  <span className="text-[9px] uppercase font-black text-slate-400 tracking-widest mt-1">Score / 100</span>
+                </div>
+              </div>
+
+              <h2 className="text-3xl font-black text-blue-600 dark:text-white dark:bg-gradient-to-r dark:from-[#00E5FF] dark:to-[#00F5D4] dark:bg-clip-text dark:text-transparent tracking-tight py-1">
+                Rating: {report.rating}
               </h2>
               
               <div className="grid grid-cols-2 gap-4 py-3.5 border-y border-slate-200 dark:border-[#1E2538]/60">

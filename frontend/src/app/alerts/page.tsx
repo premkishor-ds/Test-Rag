@@ -159,6 +159,53 @@ export default function AlertsConfig() {
           )}
         </div>
       </div>
+      {/* Notification Webhook & Channels configuration */}
+      <div className="bg-white border border-slate-200 dark:bg-[#0E121E]/60 dark:border-[#1E2538] rounded-2xl shadow-sm overflow-hidden p-6 space-y-6">
+        <div>
+          <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Notification Alert Routing</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Configure automated routing webhook destinations for active indicator alerts.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="p-4 rounded-xl border border-slate-200 dark:border-[#1E2538] bg-slate-50/50 dark:bg-[#0B0F19]/40 space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Slack Hook</span>
+              <span className="text-[9px] bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded font-bold border border-emerald-500/20">Online</span>
+            </div>
+            <input 
+              type="text" 
+              placeholder="https://hooks.slack.com/services/..." 
+              defaultValue="https://hooks.slack.com/services/T00/B00/X123"
+              className="w-full bg-white dark:bg-[#0E121E] border border-slate-200 dark:border-[#1E2538] rounded-lg p-2 text-[10px] font-semibold text-slate-600 dark:text-slate-300 focus:outline-none"
+            />
+          </div>
+
+          <div className="p-4 rounded-xl border border-slate-200 dark:border-[#1E2538] bg-slate-50/50 dark:bg-[#0B0F19]/40 space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Discord Webhook</span>
+              <span className="text-[9px] bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded font-bold border border-emerald-500/20">Online</span>
+            </div>
+            <input 
+              type="text" 
+              placeholder="https://discord.com/api/webhooks/..." 
+              defaultValue="https://discord.com/api/webhooks/999/888/abcdef"
+              className="w-full bg-white dark:bg-[#0E121E] border border-slate-200 dark:border-[#1E2538] rounded-lg p-2 text-[10px] font-semibold text-slate-600 dark:text-slate-300 focus:outline-none"
+            />
+          </div>
+
+          <div className="p-4 rounded-xl border border-slate-200 dark:border-[#1E2538] bg-slate-50/50 dark:bg-[#0B0F19]/40 space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Email Dispatch</span>
+              <span className="text-[9px] bg-slate-500/10 text-slate-400 px-2 py-0.5 rounded font-bold border border-slate-500/20">Inactive</span>
+            </div>
+            <input 
+              type="email" 
+              placeholder="alerts@yourportfolio.com" 
+              className="w-full bg-white dark:bg-[#0E121E] border border-slate-200 dark:border-[#1E2538] rounded-lg p-2 text-[10px] font-semibold text-slate-600 dark:text-slate-300 focus:outline-none"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

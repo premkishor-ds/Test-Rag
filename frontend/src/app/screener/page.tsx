@@ -149,104 +149,143 @@ export default function StockScreener() {
           <div className="space-y-4 text-xs font-semibold">
             {/* Market Cap */}
             <div>
-              <label className="block text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide text-[10px]">Min Market Cap (Cr)</label>
+              <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide font-black">
+                <span>Min Market Cap</span>
+                <span className="text-blue-600 dark:text-[#00E5FF]">{filters.min_market_cap ? `${filters.min_market_cap} Cr` : "All"}</span>
+              </div>
               <input 
-                type="number" 
+                type="range" 
                 name="min_market_cap" 
-                value={filters.min_market_cap} 
-                onChange={handleInputChange} 
-                placeholder="e.g. 500" 
-                className="w-full bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] dark:hover:border-[#2D3753] rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-blue-600 dark:focus:border-[#00E5FF] transition-colors font-medium shadow-inner" 
+                min="0"
+                max="50000"
+                step="500"
+                value={filters.min_market_cap || "0"} 
+                onChange={(e) => setFilters(prev => ({ ...prev, min_market_cap: e.target.value === "0" ? "" : e.target.value }))} 
+                className="w-full accent-blue-600 dark:accent-[#00E5FF] bg-slate-200 dark:bg-[#1E2538] h-1.5 rounded-lg cursor-pointer appearance-none" 
               />
             </div>
 
             {/* Growth Ratios */}
             <div>
-              <label className="block text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide text-[10px]">Min Rev Growth (YoY %)</label>
+              <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide font-black">
+                <span>Min Rev Growth</span>
+                <span className="text-blue-600 dark:text-[#00E5FF]">{filters.min_revenue_growth ? `${filters.min_revenue_growth}%` : "All"}</span>
+              </div>
               <input 
-                type="number" 
+                type="range" 
                 name="min_revenue_growth" 
-                value={filters.min_revenue_growth} 
-                onChange={handleInputChange} 
-                placeholder="e.g. 20" 
-                className="w-full bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] dark:hover:border-[#2D3753] rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-blue-600 dark:focus:border-[#00E5FF] transition-colors font-medium shadow-inner" 
+                min="-20"
+                max="100"
+                step="5"
+                value={filters.min_revenue_growth || "0"} 
+                onChange={(e) => setFilters(prev => ({ ...prev, min_revenue_growth: e.target.value === "0" ? "" : e.target.value }))} 
+                className="w-full accent-blue-600 dark:accent-[#00E5FF] bg-slate-200 dark:bg-[#1E2538] h-1.5 rounded-lg cursor-pointer appearance-none" 
               />
             </div>
 
             <div>
-              <label className="block text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide text-[10px]">Min Profit Growth (YoY %)</label>
+              <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide font-black">
+                <span>Min Profit Growth</span>
+                <span className="text-blue-600 dark:text-[#00E5FF]">{filters.min_profit_growth ? `${filters.min_profit_growth}%` : "All"}</span>
+              </div>
               <input 
-                type="number" 
+                type="range" 
                 name="min_profit_growth" 
-                value={filters.min_profit_growth} 
-                onChange={handleInputChange} 
-                placeholder="e.g. 15" 
-                className="w-full bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] dark:hover:border-[#2D3753] rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-blue-600 dark:focus:border-[#00E5FF] transition-colors font-medium shadow-inner" 
+                min="-20"
+                max="150"
+                step="5"
+                value={filters.min_profit_growth || "0"} 
+                onChange={(e) => setFilters(prev => ({ ...prev, min_profit_growth: e.target.value === "0" ? "" : e.target.value }))} 
+                className="w-full accent-blue-600 dark:accent-[#00E5FF] bg-slate-200 dark:bg-[#1E2538] h-1.5 rounded-lg cursor-pointer appearance-none" 
               />
             </div>
 
             {/* Efficiency Ratios */}
             <div>
-              <label className="block text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide text-[10px]">Min ROCE (%)</label>
+              <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide font-black">
+                <span>Min ROCE</span>
+                <span className="text-blue-600 dark:text-[#00E5FF]">{filters.min_roce ? `${filters.min_roce}%` : "All"}</span>
+              </div>
               <input 
-                type="number" 
+                type="range" 
                 name="min_roce" 
-                value={filters.min_roce} 
-                onChange={handleInputChange} 
-                placeholder="e.g. 15" 
-                className="w-full bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] dark:hover:border-[#2D3753] rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-blue-600 dark:focus:border-[#00E5FF] transition-colors font-medium shadow-inner" 
+                min="0"
+                max="60"
+                step="2"
+                value={filters.min_roce || "0"} 
+                onChange={(e) => setFilters(prev => ({ ...prev, min_roce: e.target.value === "0" ? "" : e.target.value }))} 
+                className="w-full accent-blue-600 dark:accent-[#00E5FF] bg-slate-200 dark:bg-[#1E2538] h-1.5 rounded-lg cursor-pointer appearance-none" 
               />
             </div>
 
             <div>
-              <label className="block text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide text-[10px]">Min ROE (%)</label>
+              <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide font-black">
+                <span>Min ROE</span>
+                <span className="text-blue-600 dark:text-[#00E5FF]">{filters.min_roe ? `${filters.min_roe}%` : "All"}</span>
+              </div>
               <input 
-                type="number" 
+                type="range" 
                 name="min_roe" 
-                value={filters.min_roe} 
-                onChange={handleInputChange} 
-                placeholder="e.g. 15" 
-                className="w-full bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] dark:hover:border-[#2D3753] rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-blue-600 dark:focus:border-[#00E5FF] transition-colors font-medium shadow-inner" 
+                min="0"
+                max="60"
+                step="2"
+                value={filters.min_roe || "0"} 
+                onChange={(e) => setFilters(prev => ({ ...prev, min_roe: e.target.value === "0" ? "" : e.target.value }))} 
+                className="w-full accent-blue-600 dark:accent-[#00E5FF] bg-slate-200 dark:bg-[#1E2538] h-1.5 rounded-lg cursor-pointer appearance-none" 
               />
             </div>
 
             {/* Leverage */}
             <div>
-              <label className="block text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide text-[10px]">Max Debt to Equity</label>
+              <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide font-black">
+                <span>Max Debt to Equity</span>
+                <span className="text-blue-600 dark:text-[#00E5FF]">{filters.max_debt_equity ? `${filters.max_debt_equity}x` : "All"}</span>
+              </div>
               <input 
-                type="number" 
+                type="range" 
                 name="max_debt_equity" 
-                value={filters.max_debt_equity} 
-                onChange={handleInputChange} 
-                placeholder="e.g. 0.5" 
-                step="0.1" 
-                className="w-full bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] dark:hover:border-[#2D3753] rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-blue-600 dark:focus:border-[#00E5FF] transition-colors font-medium shadow-inner" 
+                min="0"
+                max="4"
+                step="0.1"
+                value={filters.max_debt_equity || "4"} 
+                onChange={(e) => setFilters(prev => ({ ...prev, max_debt_equity: e.target.value === "4" ? "" : e.target.value }))} 
+                className="w-full accent-blue-600 dark:accent-[#00E5FF] bg-slate-200 dark:bg-[#1E2538] h-1.5 rounded-lg cursor-pointer appearance-none" 
               />
             </div>
 
             {/* Shareholding */}
             <div>
-              <label className="block text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide text-[10px]">Min Promoter Share (%)</label>
+              <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide font-black">
+                <span>Min Promoter Share</span>
+                <span className="text-blue-600 dark:text-[#00E5FF]">{filters.min_promoter_holding ? `${filters.min_promoter_holding}%` : "All"}</span>
+              </div>
               <input 
-                type="number" 
+                type="range" 
                 name="min_promoter_holding" 
-                value={filters.min_promoter_holding} 
-                onChange={handleInputChange} 
-                placeholder="e.g. 50" 
-                className="w-full bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] dark:hover:border-[#2D3753] rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-blue-600 dark:focus:border-[#00E5FF] transition-colors font-medium shadow-inner" 
+                min="0"
+                max="100"
+                step="5"
+                value={filters.min_promoter_holding || "0"} 
+                onChange={(e) => setFilters(prev => ({ ...prev, min_promoter_holding: e.target.value === "0" ? "" : e.target.value }))} 
+                className="w-full accent-blue-600 dark:accent-[#00E5FF] bg-slate-200 dark:bg-[#1E2538] h-1.5 rounded-lg cursor-pointer appearance-none" 
               />
             </div>
 
             {/* PE Ratio */}
             <div>
-              <label className="block text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide text-[10px]">Max PE Ratio</label>
+              <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide font-black">
+                <span>Max PE Ratio</span>
+                <span className="text-blue-600 dark:text-[#00E5FF]">{filters.max_pe ? `${filters.max_pe}x` : "All"}</span>
+              </div>
               <input 
-                type="number" 
+                type="range" 
                 name="max_pe" 
-                value={filters.max_pe} 
-                onChange={handleInputChange} 
-                placeholder="e.g. 40" 
-                className="w-full bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] dark:hover:border-[#2D3753] rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-blue-600 dark:focus:border-[#00E5FF] transition-colors font-medium shadow-inner" 
+                min="0"
+                max="120"
+                step="5"
+                value={filters.max_pe || "120"} 
+                onChange={(e) => setFilters(prev => ({ ...prev, max_pe: e.target.value === "120" ? "" : e.target.value }))} 
+                className="w-full accent-blue-600 dark:accent-[#00E5FF] bg-slate-200 dark:bg-[#1E2538] h-1.5 rounded-lg cursor-pointer appearance-none" 
               />
             </div>
 

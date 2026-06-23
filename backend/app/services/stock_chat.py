@@ -150,25 +150,18 @@ class StockChatService:
         data = self.rag_service.get_structured_stock_data(symbol)
         if not data:
             return ""
+        
+        # Token compaction: Filter out key-values where value is None or empty to save context space
+        compacted_lines = []
+        for k, v in data.items():
+            if v is not None and str(v).strip().lower() not in ["none", "n/a", "null", ""]:
+                # Make label human readable
+                label = k.replace("_", " ").title()
+                compacted_lines.append(f"- {label}: {v}")
+                
         return (
             f"### STRUCTURED MARKET & FINANCIAL DATA FOR {data.get('name')} ({data.get('symbol')}):\n"
-            f"- Sector: {data.get('sector')} | Industry: {data.get('industry')}\n"
-            f"- Market Capitalization: Rs. {data.get('market_cap')} Cr\n"
-            f"- PE Ratio: {data.get('pe_ratio')} | EV/EBITDA: {data.get('ev_ebitda')} | PEG Ratio: {data.get('peg_ratio')}\n"
-            f"- 52-Week Range: Rs. {data.get('fifty_two_week_low')} - {data.get('fifty_two_week_high')}\n"
-            f"- Revenue: Rs. {data.get('revenue')} Cr (YoY Growth: {data.get('revenue_growth')}%)\n"
-            f"- EBITDA: Rs. {data.get('ebitda')} Cr (OPM Margin: {data.get('opm_pct')}%)\n"
-            f"- Net Profit: Rs. {data.get('net_profit')} Cr (YoY Growth: {data.get('profit_growth')}% | NPM Margin: {data.get('npm_pct')}%)\n"
-            f"- ROCE: {data.get('roce')}% | ROE: {data.get('roe')}%\n"
-            f"- Debt to Equity: {data.get('debt_to_equity')} | Interest Coverage Ratio: {data.get('interest_coverage')}\n"
-            f"- Operating Cash Flow: Rs. {data.get('cash_flow')} Cr | Capital Expenditure (Capex): Rs. {data.get('capex')} Cr\n"
-            f"- Free Cash Flow (FCF): Rs. {data.get('free_cash_flow')} Cr\n"
-            f"- Shareholding: Promoters: {data.get('promoter_holding')}% (Pledged: {data.get('promoter_pledged_pct')}% of holdings) | FIIs: {data.get('fii_holding')}% | DIIs: {data.get('dii_holding')}%\n"
-            f"- Efficiency Cycles: Debtor Days: {data.get('debtor_days')} days | Inventory Turnover Ratio: {data.get('inventory_turnover')}\n"
-            f"- Order Book Size: Rs. {data.get('order_book')} Cr\n"
-            f"- Technical Indicators: RSI(14): {data.get('rsi')} | Trend Strength: {data.get('trend_strength')} | Beta: {data.get('beta')}\n"
-            f"- Moving Averages: EMA-20: Rs. {data.get('ema_20')} | EMA-50: Rs. {data.get('ema_50')} | EMA-200: Rs. {data.get('ema_200')}\n"
-            f"- Average 20-Day Trading Volume: {data.get('avg_volume_20d')} shares\n\n"
+            + "\n".join(compacted_lines) + "\n\n"
         )
 
     def process_chat(
@@ -184,32 +177,68 @@ class StockChatService:
         logger.info(f"Chat message: '{message}', detected: {detected_symbols}")
 
         active_symbol = None
-        # Handle conversation memory context
+        # Handle database persisted conversation memory context
         if conversation_id:
-            if detected_symbols:
-                active_symbol = detected_symbols[0]
-                CONVERSATION_MEMORY[conversation_id] = active_symbol
-            else:
-                active_symbol = CONVERSATION_MEMORY.get(conversation_id)
-        elif detected_symbols:
+            try:
+                # Resolve conversation from database
+                conv_id_int = int(conversation_id) if str(conversation_id).isdigit() else None
+                if conv_id_int:
+                    conv = self.db.query(Conversation).filter(Conversation.id == conv_id_int).first()
+                    if conv:
+                        if detected_symbols:
+                            active_symbol = detected_symbols[0]
+                            conv.target_symbol = active_symbol
+                            self.db.commit()
+                        else:
+                            active_symbol = conv.target_symbol
+            except Exception as e:
+                logger.error(f"Error persisting memory in DB: {e}")
+        
+        if not active_symbol and detected_symbols:
             active_symbol = detected_symbols[0]
+
+        # Live Web Search Check: Trigger if query asks for live/current updates
+        live_search_context = ""
+        temporal_triggers = ["today", "current price", "live price", "now", "news today", "latest news"]
+        if active_symbol and any(trigger in message.lower() for trigger in temporal_triggers):
+            try:
+                import urllib.parse
+                import httpx
+                from bs4 import BeautifulSoup
+                
+                query_str = f"{active_symbol} share news today"
+                url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query_str)}"
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+                resp = httpx.get(url, headers=headers, timeout=5)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, "html.parser")
+                    results = soup.find_all("a", class_="result__snippet", limit=4)
+                    snippets = [r.get_text().strip() for r in results]
+                    if snippets:
+                        live_search_context = "### LIVE WEB SEARCH NEWS & UPDATES (TODAY):\n" + "\n".join([f"- {s}" for s in snippets]) + "\n\n"
+                        logger.info(f"Live DuckDuckGo search context fetched for {active_symbol}")
+            except Exception as e:
+                logger.error(f"Error fetching live search results: {e}")
 
         # Fetch history context
         history_context = ""
         if conversation_id:
             try:
-                past_messages = self.db.query(ChatMessage).filter(
-                    ChatMessage.conversation_id == conversation_id
-                ).order_by(ChatMessage.created_at.desc()).limit(10).all()
-                past_messages.reverse()
-                if past_messages:
-                    history_parts = []
-                    for msg in past_messages:
-                        sender_label = "User" if msg.sender == "user" else "Assistant"
-                        history_parts.append(f"{sender_label}: {msg.content}")
-                    history_context = "### PREVIOUS CONVERSATION HISTORY:\n" + "\n".join(history_parts) + "\n\n"
+                conv_id_int = int(conversation_id) if str(conversation_id).isdigit() else None
+                if conv_id_int:
+                    past_messages = self.db.query(ChatMessage).filter(
+                        ChatMessage.conversation_id == conv_id_int
+                    ).order_by(ChatMessage.created_at.desc()).limit(10).all()
+                    past_messages.reverse()
+                    if past_messages:
+                        history_parts = []
+                        for msg in past_messages:
+                            sender_label = "User" if msg.sender == "user" else "Assistant"
+                            history_parts.append(f"{sender_label}: {msg.content}")
+                        history_context = "### PREVIOUS CONVERSATION HISTORY:\n" + "\n".join(history_parts) + "\n\n"
             except Exception as e:
                 logger.error(f"Error fetching conversation history: {e}")
+
 
         # If no stock symbol is active or detected, run a standard conversational query through Ollama
         if not active_symbol and not detected_symbols:
@@ -290,9 +319,11 @@ class StockChatService:
         prompt = (
             f"Context:\n{context_str}\n\n"
             f"{structured_str}"
+            f"{live_search_context}"
             f"{history_context}"
             f"Question about {stock.name if stock else active_symbol} ({active_symbol}): {message}\n\n"
             "Format your answer EXACTLY like this structure:\n"
+
             "## Summary\n[Short answer]\n\n"
             "## Key Findings\n[Bullet points]\n\n"
             "## Financial Analysis\n[Metrics and interpretation]\n\n"

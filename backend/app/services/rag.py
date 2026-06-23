@@ -99,6 +99,16 @@ class RagService:
             "fii_holding": metrics.fii_holding if metrics else None,
             "dii_holding": metrics.dii_holding if metrics else None,
             "order_book": metrics.order_book if metrics else None,
+            # Expanded financials
+            "capex": metrics.capex if metrics else None,
+            "free_cash_flow": metrics.free_cash_flow if metrics else None,
+            "ebitda": metrics.ebitda if metrics else None,
+            "opm_pct": metrics.opm_pct if metrics else None,
+            "npm_pct": metrics.npm_pct if metrics else None,
+            "interest_coverage": metrics.interest_coverage if metrics else None,
+            "debtor_days": metrics.debtor_days if metrics else None,
+            "inventory_turnover": metrics.inventory_turnover if metrics else None,
+            "promoter_pledged_pct": metrics.promoter_pledged_pct if metrics else None,
             "pe_ratio": valuation.pe_ratio if valuation else None,
             "ev_ebitda": valuation.ev_ebitda if valuation else None,
             "peg_ratio": valuation.peg_ratio if valuation else None,
@@ -106,6 +116,12 @@ class RagService:
             "fifty_two_week_low": valuation.fifty_two_week_low if valuation else None,
             "rsi": technical.rsi if technical else None,
             "trend_strength": technical.trend_strength if technical else None,
+            # Expanded technicals
+            "ema_20": technical.ema_20 if technical else None,
+            "ema_50": technical.ema_50 if technical else None,
+            "ema_200": technical.ema_200 if technical else None,
+            "avg_volume_20d": technical.avg_volume_20d if technical else None,
+            "beta": technical.beta if technical else None,
         }
     def rerank_documents(self, query: str, docs: List[Dict[str, Any]], top_k: int = 3) -> List[Dict[str, Any]]:
         if not docs:

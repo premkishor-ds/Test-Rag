@@ -146,6 +146,31 @@ class StockChatService:
             })
         return table
 
+    def get_structured_context_string(self, symbol: str) -> str:
+        data = self.rag_service.get_structured_stock_data(symbol)
+        if not data:
+            return ""
+        return (
+            f"### STRUCTURED MARKET & FINANCIAL DATA FOR {data.get('name')} ({data.get('symbol')}):\n"
+            f"- Sector: {data.get('sector')} | Industry: {data.get('industry')}\n"
+            f"- Market Capitalization: Rs. {data.get('market_cap')} Cr\n"
+            f"- PE Ratio: {data.get('pe_ratio')} | EV/EBITDA: {data.get('ev_ebitda')} | PEG Ratio: {data.get('peg_ratio')}\n"
+            f"- 52-Week Range: Rs. {data.get('fifty_two_week_low')} - {data.get('fifty_two_week_high')}\n"
+            f"- Revenue: Rs. {data.get('revenue')} Cr (YoY Growth: {data.get('revenue_growth')}%)\n"
+            f"- EBITDA: Rs. {data.get('ebitda')} Cr (OPM Margin: {data.get('opm_pct')}%)\n"
+            f"- Net Profit: Rs. {data.get('net_profit')} Cr (YoY Growth: {data.get('profit_growth')}% | NPM Margin: {data.get('npm_pct')}%)\n"
+            f"- ROCE: {data.get('roce')}% | ROE: {data.get('roe')}%\n"
+            f"- Debt to Equity: {data.get('debt_to_equity')} | Interest Coverage Ratio: {data.get('interest_coverage')}\n"
+            f"- Operating Cash Flow: Rs. {data.get('cash_flow')} Cr | Capital Expenditure (Capex): Rs. {data.get('capex')} Cr\n"
+            f"- Free Cash Flow (FCF): Rs. {data.get('free_cash_flow')} Cr\n"
+            f"- Shareholding: Promoters: {data.get('promoter_holding')}% (Pledged: {data.get('promoter_pledged_pct')}% of holdings) | FIIs: {data.get('fii_holding')}% | DIIs: {data.get('dii_holding')}%\n"
+            f"- Efficiency Cycles: Debtor Days: {data.get('debtor_days')} days | Inventory Turnover Ratio: {data.get('inventory_turnover')}\n"
+            f"- Order Book Size: Rs. {data.get('order_book')} Cr\n"
+            f"- Technical Indicators: RSI(14): {data.get('rsi')} | Trend Strength: {data.get('trend_strength')} | Beta: {data.get('beta')}\n"
+            f"- Moving Averages: EMA-20: Rs. {data.get('ema_20')} | EMA-50: Rs. {data.get('ema_50')} | EMA-200: Rs. {data.get('ema_200')}\n"
+            f"- Average 20-Day Trading Volume: {data.get('avg_volume_20d')} shares\n\n"
+        )
+
     def process_chat(
         self,
         message: str,
@@ -259,8 +284,12 @@ class StockChatService:
             "never guarantee returns, and never say 'buy now'."
         )
 
+        # Load structured stock data string
+        structured_str = self.get_structured_context_string(active_symbol)
+
         prompt = (
             f"Context:\n{context_str}\n\n"
+            f"{structured_str}"
             f"{history_context}"
             f"Question about {stock.name if stock else active_symbol} ({active_symbol}): {message}\n\n"
             "Format your answer EXACTLY like this structure:\n"
@@ -399,8 +428,12 @@ class StockChatService:
             "never guarantee returns, and never say 'buy now'."
         )
 
+        # Load structured stock data string
+        structured_str = self.get_structured_context_string(active_symbol)
+
         prompt = (
             f"Context:\n{context_str}\n\n"
+            f"{structured_str}"
             f"{history_context}"
             f"Question about {stock.name if stock else active_symbol} ({active_symbol}): {message}\n\n"
             "Format your answer EXACTLY like this structure:\n"

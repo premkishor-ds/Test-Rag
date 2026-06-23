@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.services.ingestion import IngestionEngine, fetch_stock_data_from_yahoo, fetch_and_save_pdf, fetch_corporate_document
+from app.services.article_fetcher import fetch_and_store_articles
 
 logger = logging.getLogger(__name__)
 
@@ -184,10 +185,37 @@ class MonthlyScheduler:
             # 3. Update or generate mock financial data metrics for backtesting/screener if missing
             self._ensure_stock_metrics(db)
 
+            # 4. Fetch articles, news and blogs for all stocks
+            self._fetch_articles_for_all_stocks(db, ingestion_engine, stocks)
+
         except Exception as e:
             logger.error(f"Error during monthly update: {e}")
         finally:
             db.close()
+
+    def _fetch_articles_for_all_stocks(self, db, ingestion_engine: IngestionEngine, stocks=None):
+        """Fetch up to 100 news articles per stock and vectorize new ones into Qdrant."""
+        if stocks is None:
+            from app.models.models import Stock
+            stocks = db.query(Stock).all()
+
+        logger.info(f"Starting article fetch for {len(stocks)} stocks...")
+        for s in stocks:
+            try:
+                new_articles = fetch_and_store_articles(
+                    symbol=s.symbol,
+                    company_name=s.name,
+                    db=db,
+                    limit=100,
+                )
+                for article in new_articles:
+                    try:
+                        ingestion_engine.ingest_article(article)
+                    except Exception as e:
+                        logger.error(f"Failed to vectorize article for {s.symbol}: {e}")
+            except Exception as e:
+                logger.error(f"Article fetch failed for {s.symbol}: {e}")
+        logger.info("Article fetch cycle complete.")
 
     def _ensure_stock_metrics(self, db):
         """Populate missing financial/valuation/technical metrics for all stocks."""
@@ -354,3 +382,25 @@ def run_scheduler_loop():
         except Exception as e:
             logger.error(f"Scheduler exception: {e}")
         time.sleep(30 * 86400) # Sleep for 30 days
+
+
+def run_daily_article_loop():
+    """
+    Dedicated daily loop that refreshes articles for all stocks every 24 hours.
+    Runs independently of the 30-day PDF/metrics sync.
+    """
+    logger.info("Starting daily article refresh loop...")
+    while True:
+        db = SessionLocal()
+        ingestion_engine = IngestionEngine(db)
+        try:
+            from app.models.models import Stock
+            stocks = db.query(Stock).all()
+            scheduler = MonthlyScheduler()
+            scheduler._fetch_articles_for_all_stocks(db, ingestion_engine, stocks)
+            logger.info("Daily article refresh complete. Next run in 24 hours.")
+        except Exception as e:
+            logger.error(f"Daily article loop error: {e}")
+        finally:
+            db.close()
+        time.sleep(86400)  # Sleep 24 hours

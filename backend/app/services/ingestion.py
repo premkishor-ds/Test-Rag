@@ -37,7 +37,7 @@ from qdrant_client.http import models as qmodels
 from app.core.config import settings
 from app.core.ollama import ollama_client
 from app.core.qdrant import qdrant_client
-from app.models.models import Stock, AnnualReport, CorporateDocument, AuditLog
+from app.models.models import Stock, AnnualReport, CorporateDocument, AuditLog, StockArticle
 
 import requests
 
@@ -667,6 +667,84 @@ class IngestionEngine:
         self.db.add(audit)
         self.db.commit()
         return True
+
+    def ingest_article(self, article: StockArticle) -> bool:
+        """
+        Vectorize a StockArticle's content into Qdrant.
+        Chunks the article text, generates embeddings, and upserts to the collection.
+        Sets article.is_vectorized = True on success.
+        """
+        if article.is_vectorized:
+            return True
+
+        text = article.content_text or article.title
+        if not text or not text.strip():
+            logger.warning(f"Article {article.id} has no content to vectorize.")
+            return False
+
+        chunks = TextChunker.chunk_text(text, chunk_size=800, overlap=150)
+        if not chunks:
+            return False
+
+        pub_date = article.published_date.isoformat() if article.published_date else datetime.date.today().isoformat()
+
+        points = []
+        for idx, chunk_text in enumerate(chunks):
+            chunk_id = f"article_{article.stock_symbol}_{article.id}_c{idx}"
+            try:
+                vector = ollama_client.generate_embeddings(chunk_text)
+            except Exception as e:
+                logger.error(f"Embedding failed for article chunk {chunk_id}: {e}")
+                continue
+
+            payload = {
+                "stock_symbol": article.stock_symbol,
+                "stock_name": article.stock.name if article.stock else article.stock_symbol,
+                "source_type": article.source_type or "news",
+                "source_file": article.source or "web",
+                "title": article.title,
+                "url": article.url,
+                "published_date": pub_date,
+                "sentiment": article.sentiment or "Neutral",
+                "chunk_id": chunk_id,
+                "financial_year": datetime.datetime.utcnow().year,
+                "quarter": "N/A",
+                "page_number": idx + 1,
+                "parent_context": text[:1000],
+                "created_at": datetime.datetime.utcnow().isoformat(),
+                "content": chunk_text,
+            }
+            points.append(
+                qmodels.PointStruct(
+                    id=hashlib.md5(chunk_id.encode()).hexdigest()[:32],
+                    vector=vector,
+                    payload=payload,
+                )
+            )
+
+        if points and qdrant_client:
+            try:
+                qdrant_client.upsert(
+                    collection_name=settings.QDRANT_COLLECTION_NAME,
+                    points=points,
+                )
+                article.is_vectorized = True
+                self.db.commit()
+                logger.info(
+                    f"Vectorized article [{article.stock_symbol}] '{article.title[:60]}' "
+                    f"- {len(points)} chunks in Qdrant."
+                )
+                return True
+            except Exception as e:
+                logger.error(f"Qdrant upsert failed for article {article.id}: {e}")
+                return False
+        elif not qdrant_client:
+            # Qdrant unavailable — mark as vectorized to avoid infinite retry
+            article.is_vectorized = True
+            self.db.commit()
+            logger.warning(f"Qdrant unavailable. Article {article.id} marked as vectorized (no vectors stored).")
+            return True
+        return False
 
 def _try_bse_nse_direct_download(symbol: str, financial_year: int) -> List[str]:
     """

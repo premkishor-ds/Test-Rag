@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Sparkles, BookOpen, AlertTriangle, ShieldCheck, TrendingUp, HelpCircle, BarChart2, MessageSquare, Award, ArrowUpRight } from "lucide-react";
+import { Search, Sparkles, BookOpen, AlertTriangle, ShieldCheck, TrendingUp, HelpCircle, BarChart2, MessageSquare, Award, ArrowUpRight, Newspaper, RefreshCw, ExternalLink } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -58,6 +58,18 @@ interface ChatMessage {
   }>;
 }
 
+interface StockArticle {
+  id: number;
+  title: string;
+  url: string;
+  source: string;
+  source_type: string;
+  sentiment: "Positive" | "Negative" | "Neutral";
+  summary: string | null;
+  published_date: string | null;
+  fetched_at: string | null;
+}
+
 export default function StockAnalysis() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState("");
@@ -69,6 +81,11 @@ export default function StockAnalysis() {
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
+
+  // News / Articles state
+  const [articles, setArticles] = useState<StockArticle[]>([]);
+  const [articlesLoading, setArticlesLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const fetchStocks = async () => {
@@ -92,6 +109,43 @@ export default function StockAnalysis() {
     };
     fetchStocks();
   }, []);
+
+  // Fetch articles whenever selected stock changes
+  useEffect(() => {
+    if (!selectedSymbol) return;
+    const fetchArticles = async () => {
+      setArticlesLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/api/v1/stock/${selectedSymbol}/articles?limit=50`);
+        if (res.ok) {
+          const data = await res.json();
+          setArticles(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch articles:", err);
+      } finally {
+        setArticlesLoading(false);
+      }
+    };
+    fetchArticles();
+  }, [selectedSymbol]);
+
+  const handleRefreshArticles = async () => {
+    if (!selectedSymbol || refreshing) return;
+    setRefreshing(true);
+    try {
+      await fetch(`${API_URL}/api/v1/stock/${selectedSymbol}/articles/refresh`, { method: "POST" });
+      // Wait a moment then refetch
+      setTimeout(async () => {
+        const res = await fetch(`${API_URL}/api/v1/stock/${selectedSymbol}/articles?limit=50`);
+        if (res.ok) setArticles(await res.json());
+        setRefreshing(false);
+      }, 3000);
+    } catch (err) {
+      console.error(err);
+      setRefreshing(false);
+    }
+  };
 
   const handleGenerateReport = async () => {
     if (!selectedSymbol) return;
@@ -463,6 +517,101 @@ export default function StockAnalysis() {
               </form>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* News Feed Panel — always visible when a stock is selected */}
+      {selectedSymbol && (
+        <div className="bg-white border border-slate-200 dark:bg-[#0E121E]/80 dark:border-[#1E2538] rounded-2xl shadow-sm dark:shadow-xl overflow-hidden transition-colors duration-200">
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-[#1E2538]">
+            <div className="flex items-center space-x-2.5">
+              <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-[#00E5FF]/10 border border-blue-100 dark:border-[#00E5FF]/20">
+                <Newspaper className="h-4 w-4 text-blue-600 dark:text-[#00E5FF]" />
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white tracking-tight">
+                  Latest News & Articles
+                </h3>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                  {articles.length > 0 ? `${articles.length} articles fetched` : "No articles yet — click Refresh to fetch"} · Auto-refreshes daily
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleRefreshArticles}
+              disabled={refreshing}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-[#1E2538] border border-slate-200 dark:border-[#2B354C] text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2A334B] transition-all active:scale-95 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              <span>{refreshing ? "Fetching..." : "Refresh"}</span>
+            </button>
+          </div>
+
+          {/* Articles list */}
+          <div className="divide-y divide-slate-100 dark:divide-[#1E2538] max-h-[520px] overflow-y-auto">
+            {articlesLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex items-center space-x-3 text-slate-400 dark:text-slate-500">
+                  <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs font-semibold">Loading articles...</span>
+                </div>
+              </div>
+            ) : articles.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-14 text-center px-8">
+                <Newspaper className="h-8 w-8 text-slate-300 dark:text-slate-600 mb-3" />
+                <p className="text-sm font-bold text-slate-500 dark:text-slate-400">No articles fetched yet</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Click Refresh to pull the latest news for {selectedSymbol}</p>
+              </div>
+            ) : (
+              articles.map((article) => {
+                const sentimentConfig = {
+                  Positive: { dot: "bg-emerald-500", badge: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20" },
+                  Negative: { dot: "bg-red-500", badge: "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20" },
+                  Neutral:  { dot: "bg-amber-400", badge: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20" },
+                }[article.sentiment] ?? { dot: "bg-slate-400", badge: "bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700" };
+
+                return (
+                  <div key={article.id} className="px-5 py-3.5 hover:bg-slate-50 dark:hover:bg-[#0B0F19]/40 transition-colors group">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${sentimentConfig.badge}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${sentimentConfig.dot}`} />
+                            {article.sentiment}
+                          </span>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium truncate">
+                            {article.source} · {article.published_date || article.fetched_at?.slice(0, 10) || "Recent"}
+                          </span>
+                        </div>
+                        <a
+                          href={article.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-snug hover:text-blue-600 dark:hover:text-[#00E5FF] transition-colors line-clamp-2 group-hover:underline"
+                        >
+                          {article.title}
+                        </a>
+                        {article.summary && (
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed line-clamp-2 font-medium">
+                            {article.summary}
+                          </p>
+                        )}
+                      </div>
+                      <a
+                        href={article.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-shrink-0 p-1.5 rounded-lg text-slate-300 dark:text-slate-600 hover:text-blue-600 dark:hover:text-[#00E5FF] hover:bg-blue-50 dark:hover:bg-[#00E5FF]/10 transition-all"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       )}

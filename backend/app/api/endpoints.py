@@ -436,3 +436,66 @@ def get_stock_price_history(symbol: str, db: Session = Depends(get_db)):
     if not stock:
         raise HTTPException(status_code=404, detail="Stock not found")
     return db.query(StockPriceHistory).filter(StockPriceHistory.stock_symbol == symbol.upper()).order_by(StockPriceHistory.date.asc()).all()
+
+
+# 12. Stock Articles
+from app.models.models import StockArticle
+
+@router.get("/stock/{symbol}/articles")
+def get_stock_articles(
+    symbol: str,
+    limit: int = 50,
+    source_type: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """List fetched articles / news for a stock."""
+    stock = db.query(Stock).filter(Stock.symbol == symbol.upper()).first()
+    if not stock:
+        raise HTTPException(status_code=404, detail="Stock not found")
+    q = db.query(StockArticle).filter(StockArticle.stock_symbol == symbol.upper())
+    if source_type:
+        q = q.filter(StockArticle.source_type == source_type)
+    articles = q.order_by(StockArticle.fetched_at.desc()).limit(limit).all()
+    return [
+        {
+            "id": a.id,
+            "title": a.title,
+            "url": a.url,
+            "source": a.source,
+            "source_type": a.source_type,
+            "sentiment": a.sentiment,
+            "summary": a.summary,
+            "published_date": a.published_date.isoformat() if a.published_date else None,
+            "fetched_at": a.fetched_at.isoformat() if a.fetched_at else None,
+            "is_vectorized": a.is_vectorized,
+        }
+        for a in articles
+    ]
+
+
+@router.post("/stock/{symbol}/articles/refresh")
+def refresh_stock_articles(symbol: str, db: Session = Depends(get_db)):
+    """Manually trigger a fresh article fetch for a stock."""
+    import threading
+    stock = db.query(Stock).filter(Stock.symbol == symbol.upper()).first()
+    if not stock:
+        raise HTTPException(status_code=404, detail="Stock not found")
+
+    def _run():
+        from app.core.database import SessionLocal
+        from app.services.article_fetcher import fetch_and_store_articles
+        from app.services.ingestion import IngestionEngine
+        bg_db = SessionLocal()
+        try:
+            bg_stock = bg_db.query(Stock).filter(Stock.symbol == symbol.upper()).first()
+            engine = IngestionEngine(bg_db)
+            new_articles = fetch_and_store_articles(symbol.upper(), bg_stock.name, bg_db, limit=100)
+            for article in new_articles:
+                engine.ingest_article(article)
+        finally:
+            bg_db.close()
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    return {"status": "Article refresh started in background", "symbol": symbol.upper()}
+

@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.core.database import engine, Base
 from app.core.qdrant import init_qdrant
 from app.api.router import api_router
-from app.worker.scheduler import run_scheduler_loop
+from app.worker.scheduler import run_scheduler_loop, run_daily_article_loop
 
 # Setup Logging
 logging.basicConfig(
@@ -56,6 +56,10 @@ def startup_event():
     logger.info("Starting background Monthly Update Scheduler...")
     scheduler_thread = threading.Thread(target=run_scheduler_loop, daemon=True)
     scheduler_thread.start()
+
+    logger.info("Starting background Daily Article Refresh...")
+    article_thread = threading.Thread(target=run_daily_article_loop, daemon=True)
+    article_thread.start()
 
 # API Router
 app.include_router(api_router, prefix=settings.API_V1_STR)

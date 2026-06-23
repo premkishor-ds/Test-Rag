@@ -76,6 +76,7 @@ class Stock(Base):
     news = relationship("News", back_populates="stock", cascade="all, delete-orphan")
     analysis_reports = relationship("AnalysisReport", back_populates="stock", cascade="all, delete-orphan")
     price_history = relationship("StockPriceHistory", back_populates="stock", cascade="all, delete-orphan")
+    articles = relationship("StockArticle", back_populates="stock", cascade="all, delete-orphan")
 
 class AnnualReport(Base):
     __tablename__ = "annual_reports"
@@ -324,3 +325,25 @@ class StockPriceHistory(Base):
     __table_args__ = (UniqueConstraint('stock_symbol', 'date', name='_stock_date_uc'),)
 
     stock = relationship("Stock", back_populates="price_history")
+
+
+class StockArticle(Base):
+    """Stores fetched news articles, blogs, and web content for each stock."""
+    __tablename__ = "stock_articles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    stock_symbol = Column(String(20), ForeignKey("stocks.symbol", ondelete="CASCADE"), nullable=False, index=True)
+    title = Column(String(512), nullable=False)
+    url = Column(String(1024), unique=True, nullable=False)       # dedup key
+    source = Column(String(100), nullable=True)                   # e.g. "Google News", "ET Markets"
+    source_type = Column(String(50), default="news")              # "news", "blog", "analysis", "exchange_notice"
+    published_date = Column(DateTime, nullable=True)
+    content_text = Column(Text, nullable=True)                    # Cleaned full article body
+    summary = Column(Text, nullable=True)                         # LLM-generated 2-sentence summary
+    sentiment = Column(String(20), nullable=True)                 # Positive, Negative, Neutral
+    is_vectorized = Column(Boolean, default=False)                # True after pushed to Qdrant
+    fetched_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint('url', name='_article_url_uc'),)
+
+    stock = relationship("Stock", back_populates="articles")

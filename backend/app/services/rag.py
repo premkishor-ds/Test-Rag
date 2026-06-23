@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.ollama import ollama_client
 from app.core.qdrant import qdrant_client
-from app.models.models import Stock, FinancialMetric, ValuationMetric, TechnicalIndicator
+from app.models.models import Stock, FinancialMetric, ValuationMetric, TechnicalIndicator, StockArticle
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +123,31 @@ class RagService:
             "avg_volume_20d": technical.avg_volume_20d if technical else None,
             "beta": technical.beta if technical else None,
         }
+
+    def get_recent_articles(self, stock_symbol: str, days: int = 7, limit: int = 10) -> List[Dict[str, Any]]:
+        """Return recent articles for a stock within the last `days` days."""
+        import datetime
+        cutoff = datetime.datetime.utcnow() - datetime.timedelta(days=days)
+        articles = (
+            self.db.query(StockArticle)
+            .filter(
+                StockArticle.stock_symbol == stock_symbol.upper(),
+            )
+            .order_by(StockArticle.fetched_at.desc())
+            .limit(limit)
+            .all()
+        )
+        result = []
+        for a in articles:
+            result.append({
+                "title": a.title,
+                "source": a.source or "Unknown",
+                "sentiment": a.sentiment or "Neutral",
+                "summary": a.summary or "",
+                "url": a.url,
+                "published_date": a.published_date.strftime("%Y-%m-%d") if a.published_date else "Recent",
+            })
+        return result
     def rerank_documents(self, query: str, docs: List[Dict[str, Any]], top_k: int = 3) -> List[Dict[str, Any]]:
         if not docs:
             return []
@@ -216,6 +241,19 @@ class RagService:
                     f"- Order Book Size: Rs. {data['order_book']} Cr\n"
                     f"- P/E Ratio: {data['pe_ratio']}\n"
                 )
+
+                # Inject recent news headlines
+                recent_articles = self.get_recent_articles(stock_symbol, days=30, limit=7)
+                if recent_articles:
+                    structured_context += "\n### RECENT NEWS:\n"
+                    for art in recent_articles:
+                        sentiment_icon = {"Positive": "🟢", "Negative": "🔴", "Neutral": "🟡"}.get(art["sentiment"], "🟡")
+                        structured_context += (
+                            f"{sentiment_icon} [{art['sentiment']}] \"{art['title']}\" "
+                            f"— {art['source']} ({art['published_date']})\n"
+                        )
+                        if art.get("summary"):
+                            structured_context += f"   Summary: {art['summary']}\n"
 
         # Fetch unstructured data if needed - retrieve 10 and rerank to top 3
         if query_type in ["UNSTRUCTURED", "HYBRID"]:

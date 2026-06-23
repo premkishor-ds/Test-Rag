@@ -54,13 +54,24 @@ export default function StockChat() {
   const [expandedSource, setExpandedSource] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Hide global layout footer on mount, restore on unmount
+  // Hide global layout footer and stretch main container on mount, restore on unmount
   useEffect(() => {
+    const main = document.querySelector("main");
+    let originalMainClass = "";
+    if (main) {
+      originalMainClass = main.className;
+      main.className = "flex-grow w-full relative flex flex-col";
+    }
+
     const footer = document.querySelector("footer");
     if (footer) {
       footer.style.display = "none";
     }
+
     return () => {
+      if (main && originalMainClass) {
+        main.className = originalMainClass;
+      }
       if (footer) {
         footer.style.display = "";
       }
@@ -332,7 +343,7 @@ export default function StockChat() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-140px)] border border-slate-200 dark:border-[#1E2538] rounded-2xl bg-white dark:bg-[#0E121E]/60 shadow-md relative overflow-hidden">
+    <div className="flex h-[calc(100vh-64px)] w-full bg-white dark:bg-[#080B11] relative overflow-hidden">
       
       {/* Sidebar Panel - Collapsible / ChatGPT Style */}
       <div 

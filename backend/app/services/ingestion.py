@@ -341,6 +341,15 @@ class IngestionEngine:
                     if row.get("market_cap"):
                         stock.market_cap = float(row.get("market_cap"))
                 stocks_loaded.append(stock)
+        
+        # Cleanup: Delete stocks from DB that are not in the CSV
+        loaded_symbols = {s.symbol for s in stocks_loaded}
+        all_db_stocks = self.db.query(Stock).all()
+        for db_stock in all_db_stocks:
+            if db_stock.symbol not in loaded_symbols:
+                logger.info(f"Removing deleted stock {db_stock.symbol} from database...")
+                self.db.delete(db_stock)
+                
         self.db.commit()
         return stocks_loaded
 
@@ -832,6 +841,17 @@ def fetch_and_save_pdf(symbol: str, financial_year: int) -> Optional[str]:
     file_name = f"{symbol.upper()}_{financial_year}_AnnualReport.pdf"
     save_path = os.path.join(doc_dir, file_name)
 
+    # Shortcut: If valid PDF already exists, reuse it
+    if os.path.exists(save_path) and os.path.getsize(save_path) > 10000:
+        try:
+            with open(save_path, "rb") as f:
+                magic = f.read(4)
+                if magic == b"%PDF":
+                    logger.info(f"PDF already exists on disk: {save_path}. Skipping download.")
+                    return save_path
+        except Exception:
+            pass
+
     # Strategy 1: Screener.in scraper (Primary)
     screener_urls = _get_screener_pdf_links(symbol, "annual_report", financial_year)
     result = _download_pdf_from_urls(screener_urls, save_path)
@@ -887,6 +907,17 @@ def fetch_corporate_document(
     q_suffix = f"_{quarter}" if quarter else ""
     file_name = f"{symbol.upper()}_{financial_year}{q_suffix}_{document_type}.pdf"
     save_path = os.path.join(doc_dir, file_name)
+
+    # Shortcut: If valid PDF already exists, reuse it
+    if os.path.exists(save_path) and os.path.getsize(save_path) > 10000:
+        try:
+            with open(save_path, "rb") as f:
+                magic = f.read(4)
+                if magic == b"%PDF":
+                    logger.info(f"PDF already exists on disk: {save_path}. Skipping download.")
+                    return save_path
+        except Exception:
+            pass
 
     # Strategy 1: Screener.in scraper (Primary)
     screener_urls = _get_screener_pdf_links(symbol, document_type, financial_year, quarter)

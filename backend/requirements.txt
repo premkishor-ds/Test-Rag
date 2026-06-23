@@ -13,4 +13,4 @@ beautifulsoup4==4.12.3
 pillow==10.2.0
 pytesseract==0.3.10
 yfinance==1.4.1
-
+python-multipart==0.0.9

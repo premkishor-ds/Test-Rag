@@ -34,6 +34,7 @@ class User(Base):
     roles = relationship("Role", secondary=user_roles, back_populates="users")
     watchlists = relationship("Watchlist", back_populates="user", cascade="all, delete-orphan")
     saved_filters = relationship("SavedFilter", back_populates="user", cascade="all, delete-orphan")
+    conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
 
 class Role(Base):
     __tablename__ = "roles"
@@ -267,3 +268,27 @@ class AuditLog(Base):
     target_id = Column(String(100))
     details = Column(Text)
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    user = relationship("User", back_populates="conversations")
+    messages = relationship("ChatMessage", back_populates="conversation", cascade="all, delete-orphan")
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    conversation_id = Column(Integer, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
+    sender = Column(String(50), nullable=False) # 'user' or 'assistant'
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    meta_json = Column(Text, nullable=True) # stores sources, scores, or tables
+
+    conversation = relationship("Conversation", back_populates="messages")

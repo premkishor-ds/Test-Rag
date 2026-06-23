@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.ollama import ollama_client
-from app.models.models import Stock, FinancialMetric, ValuationMetric
+from app.models.models import Stock, FinancialMetric, ValuationMetric, Conversation, ChatMessage
 from app.services.rag import RagService
 
 logger = logging.getLogger(__name__)
@@ -169,6 +169,23 @@ class StockChatService:
         elif detected_symbols:
             active_symbol = detected_symbols[0]
 
+        # Fetch history context
+        history_context = ""
+        if conversation_id:
+            try:
+                past_messages = self.db.query(ChatMessage).filter(
+                    ChatMessage.conversation_id == conversation_id
+                ).order_by(ChatMessage.created_at.desc()).limit(10).all()
+                past_messages.reverse()
+                if past_messages:
+                    history_parts = []
+                    for msg in past_messages:
+                        sender_label = "User" if msg.sender == "user" else "Assistant"
+                        history_parts.append(f"{sender_label}: {msg.content}")
+                    history_context = "### PREVIOUS CONVERSATION HISTORY:\n" + "\n".join(history_parts) + "\n\n"
+            except Exception as e:
+                logger.error(f"Error fetching conversation history: {e}")
+
         # If no stock symbol is active or detected, run a standard conversational query through Ollama
         if not active_symbol and not detected_symbols:
             all_stocks = self.db.query(Stock).all()
@@ -180,9 +197,10 @@ class StockChatService:
                 "At the end of your response, if relevant, remind the user that they can ask you to run deep analyses "
                 f"on specific stocks available in our database (such as {', '.join(suggestions)})."
             )
+            full_prompt = history_context + message
             try:
                 answer = ollama_client.generate_completion(
-                    message,
+                    full_prompt,
                     system_prompt=system_prompt,
                     temperature=temperature,
                     model=model
@@ -243,6 +261,7 @@ class StockChatService:
 
         prompt = (
             f"Context:\n{context_str}\n\n"
+            f"{history_context}"
             f"Question about {stock.name if stock else active_symbol} ({active_symbol}): {message}\n\n"
             "Format your answer EXACTLY like this structure:\n"
             "## Summary\n[Short answer]\n\n"
@@ -277,3 +296,138 @@ class StockChatService:
             "scores": scores,
             "comparison_table": None
         }
+
+    def process_chat_stream(
+        self,
+        message: str,
+        conversation_id: Optional[str] = None,
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        custom_system_prompt: Optional[str] = None
+    ):
+        detected_symbols = self.detect_symbols(message)
+        logger.info(f"Chat stream message: '{message}', detected: {detected_symbols}")
+
+        active_symbol = None
+        if conversation_id:
+            if detected_symbols:
+                active_symbol = detected_symbols[0]
+                CONVERSATION_MEMORY[conversation_id] = active_symbol
+            else:
+                active_symbol = CONVERSATION_MEMORY.get(conversation_id)
+        elif detected_symbols:
+            active_symbol = detected_symbols[0]
+
+        # Fetch history
+        history_context = ""
+        if conversation_id:
+            try:
+                past_messages = self.db.query(ChatMessage).filter(
+                    ChatMessage.conversation_id == conversation_id
+                ).order_by(ChatMessage.created_at.desc()).limit(10).all()
+                past_messages.reverse()
+                if past_messages:
+                    history_parts = []
+                    for msg in past_messages:
+                        sender_label = "User" if msg.sender == "user" else "Assistant"
+                        history_parts.append(f"{sender_label}: {msg.content}")
+                    history_context = "### PREVIOUS CONVERSATION HISTORY:\n" + "\n".join(history_parts) + "\n\n"
+            except Exception as e:
+                logger.error(f"Error fetching conversation history: {e}")
+
+        # If no stock symbol is active or detected
+        if not active_symbol and not detected_symbols:
+            all_stocks = self.db.query(Stock).all()
+            suggestions = [s.symbol for s in all_stocks[:4]]
+            
+            system_prompt = custom_system_prompt or (
+                "You are EQUITY.AI, a premium AI stock research assistant. "
+                "Answer the user's general conversational or financial question politely, accurately, and concisely. "
+                "At the end of your response, if relevant, remind the user that they can ask you to run deep analyses "
+                f"on specific stocks available in our database (such as {', '.join(suggestions)})."
+            )
+            full_prompt = history_context + message
+            try:
+                for chunk in ollama_client.generate_completion_stream(
+                    full_prompt,
+                    system_prompt=system_prompt,
+                    temperature=temperature,
+                    model=model
+                ):
+                    yield {"type": "text", "content": chunk}
+                yield {"type": "metadata", "sources": [], "scores": None, "comparison_table": None}
+            except Exception as e:
+                yield {"type": "text", "content": f"Error in stream: {e}"}
+            return
+
+        # If comparison mode (we don't stream here, just yield the constructed table chunk)
+        if len(detected_symbols) >= 2:
+            comparison_table = self.generate_comparison_table(detected_symbols)
+            answer = (
+                f"### Comparison Analysis: " + " vs ".join(detected_symbols) + "\n\n"
+                "| Metric | " + " | ".join([item["symbol"] for item in comparison_table]) + " |\n"
+                "| --- | " + " | ".join(["---"] * len(comparison_table)) + " |\n"
+                "| **Revenue Growth** | " + " | ".join([str(item["revenue_growth"]) for item in comparison_table]) + " |\n"
+                "| **ROCE** | " + " | ".join([str(item["roce"]) for item in comparison_table]) + " |\n"
+                "| **P/E Ratio** | " + " | ".join([str(item["pe"]) for item in comparison_table]) + " |\n"
+                "| **Debt to Equity** | " + " | ".join([str(item["debt_equity"]) for item in comparison_table]) + " |\n"
+                "| **Overall Score** | " + " | ".join([f"{item['score']}/100" for item in comparison_table]) + " |\n\n"
+                "Based on quantitative parameters, "
+                f"**{max(comparison_table, key=lambda x: x['score'])['symbol']}** emerges as the overall winner based on balanced growth and capital efficiency indicators."
+            )
+            yield {"type": "text", "content": answer}
+            yield {"type": "metadata", "sources": [], "scores": None, "comparison_table": comparison_table}
+            return
+
+        # Single Stock RAG Mode
+        stock = self.db.query(Stock).filter(Stock.symbol == active_symbol).first()
+        scores = self.calculate_scores(active_symbol)
+        
+        raw_docs = self.rag_service.search_vector_db(message, stock_symbol=active_symbol, limit=top_k or 10)
+        vector_docs = self.rag_service.rerank_documents(message, raw_docs, top_k=3)
+
+        context_parts = []
+        if vector_docs:
+            for doc in vector_docs:
+                context_parts.append(doc["content"])
+        context_str = "\n\n".join(context_parts)
+
+        system_prompt = custom_system_prompt or (
+            "You are a premium stock research agent. Your task is to output a comprehensive financial analysis. "
+            "You MUST follow the requested markdown structure exactly. Use probability-based language, "
+            "never guarantee returns, and never say 'buy now'."
+        )
+
+        prompt = (
+            f"Context:\n{context_str}\n\n"
+            f"{history_context}"
+            f"Question about {stock.name if stock else active_symbol} ({active_symbol}): {message}\n\n"
+            "Format your answer EXACTLY like this structure:\n"
+            "## Summary\n[Short answer]\n\n"
+            "## Key Findings\n[Bullet points]\n\n"
+            "## Financial Analysis\n[Metrics and interpretation]\n\n"
+            "## Management Commentary\n[Extracted commentary from context]\n\n"
+            "## Growth Drivers\n[Future opportunities]\n\n"
+            "## Risks\n[Potential concerns]\n\n"
+            "## AI Investment Score\n"
+            f"| Metric | Score |\n"
+            f"| --- | --- |\n"
+            f"| Business Quality | {scores['business']}/100 |\n"
+            f"| Financial Strength | {scores['financial']}/100 |\n"
+            f"| Valuation | {scores['valuation']}/100 |\n"
+            f"| Risk | {scores['risk']}/100 |\n"
+            f"| **Overall Score** | **{scores['overall']}/100** |\n"
+        )
+
+        try:
+            for chunk in ollama_client.generate_completion_stream(
+                prompt,
+                system_prompt=system_prompt,
+                temperature=temperature,
+                model=model
+            ):
+                yield {"type": "text", "content": chunk}
+            yield {"type": "metadata", "sources": vector_docs, "scores": scores, "comparison_table": None}
+        except Exception as e:
+            yield {"type": "text", "content": f"Error in stream: {e}"}

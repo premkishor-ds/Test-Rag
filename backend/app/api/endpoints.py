@@ -1,15 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 
-from app.core.database import get_db
-from app.models.models import Stock, FinancialMetric, ValuationMetric, News, AnalysisReport, AuditLog, SavedFilter
+from app.core.database import get_db, SessionLocal
+from app.models.models import Stock, FinancialMetric, ValuationMetric, News, AnalysisReport, AuditLog, SavedFilter, Conversation, ChatMessage
 from app.schemas.schemas import (
     StockResponse, FinancialMetricResponse, ValuationMetricResponse,
     ScreenerFilterRequest, BacktestRequest, BacktestResponse,
     WatchlistCreate, WatchlistResponse, WatchlistItemCreate, WatchlistItemResponse,
     RagQueryRequest, RagQueryResponse, AnalysisReportResponse, NewsResponse,
-    StockChatRequest, StockChatResponse
+    StockChatRequest, StockChatResponse, ConversationResponse, ChatMessageResponse
 )
 from app.services.rag import RagService
 from app.services.analysis import AnalysisService
@@ -215,25 +216,98 @@ def get_audit_logs(
         for l in logs
     ]
 
+@router.get("/conversations", response_model=List[ConversationResponse])
+def get_conversations(db: Session = Depends(get_db)):
+    """Retrieve all conversations for the user (default user_id=1)."""
+    return db.query(Conversation).filter(Conversation.user_id == 1).order_by(Conversation.updated_at.desc()).all()
+
+@router.get("/conversations/{conversation_id}/messages", response_model=List[ChatMessageResponse])
+def get_conversation_messages(conversation_id: int, db: Session = Depends(get_db)):
+    """Retrieve all chat messages for a specific conversation."""
+    conv = db.query(Conversation).filter(Conversation.id == conversation_id, Conversation.user_id == 1).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return db.query(ChatMessage).filter(ChatMessage.conversation_id == conversation_id).order_by(ChatMessage.created_at.asc()).all()
+
+@router.delete("/conversations/{conversation_id}")
+def delete_conversation(conversation_id: int, db: Session = Depends(get_db)):
+    """Delete a conversation and all its messages."""
+    conv = db.query(Conversation).filter(Conversation.id == conversation_id, Conversation.user_id == 1).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    db.delete(conv)
+    db.commit()
+    return {"message": "Conversation deleted successfully"}
+
 @router.post("/stock-chat", response_model=StockChatResponse)
 def stock_chat(request: StockChatRequest, db: Session = Depends(get_db)):
+    # Resolve or create conversation
+    db_conv_id = None
+    if request.conversationId:
+        try:
+            db_conv_id = int(request.conversationId)
+        except ValueError:
+            pass
+            
+    if db_conv_id:
+        conv = db.query(Conversation).filter(Conversation.id == db_conv_id, Conversation.user_id == 1).first()
+    else:
+        conv = None
+        
+    if not conv:
+        title = request.message[:30] + ("..." if len(request.message) > 30 else "")
+        conv = Conversation(user_id=1, title=title)
+        db.add(conv)
+        db.commit()
+        db.refresh(conv)
+        
+    # Save User message
+    user_msg = ChatMessage(
+        conversation_id=conv.id,
+        sender="user",
+        content=request.message
+    )
+    db.add(user_msg)
+    db.commit()
+
     chat_service = StockChatService(db)
     result = chat_service.process_chat(
         request.message,
-        request.conversationId,
+        conversation_id=str(conv.id),
         model=request.model,
         temperature=request.temperature,
         top_k=request.topK,
         custom_system_prompt=request.systemPrompt
     )
     
-    # Save audit log entry for the chat query
+    # Save Assistant response
     import json
+    meta_str = None
+    if result.get("sources") or result.get("scores") or result.get("comparison_table"):
+        meta_str = json.dumps({
+            "sources": result.get("sources"),
+            "scores": result.get("scores"),
+            "comparison_table": result.get("comparison_table")
+        })
+        
+    assistant_msg = ChatMessage(
+        conversation_id=conv.id,
+        sender="assistant",
+        content=result.get("answer", ""),
+        meta_json=meta_str
+    )
+    db.add(assistant_msg)
+    
+    # Update conversation's updated_at timestamp
+    import datetime
+    conv.updated_at = datetime.datetime.utcnow()
+    
+    # Save audit log entry for the chat query
     try:
         audit = AuditLog(
             action="CHAT_QUERY",
             target_type="chat",
-            target_id=request.conversationId,
+            target_id=str(conv.id),
             details=json.dumps({
                 "message": request.message,
                 "answer": result.get("answer", ""),
@@ -244,12 +318,111 @@ def stock_chat(request: StockChatRequest, db: Session = Depends(get_db)):
         db.commit()
     except Exception as e:
         db.rollback()
-        # Suppress logging errors to not block the main response
         pass
         
     return StockChatResponse(
         answer=result["answer"],
         sources=result["sources"],
         scores=result["scores"],
-        comparison_table=result["comparison_table"]
+        comparison_table=result["comparison_table"],
+        conversationId=str(conv.id)
     )
+
+@router.post("/stock-chat/stream")
+def stock_chat_stream(request: StockChatRequest, db: Session = Depends(get_db)):
+    # Resolve or create conversation
+    db_conv_id = None
+    if request.conversationId:
+        try:
+            db_conv_id = int(request.conversationId)
+        except ValueError:
+            pass
+            
+    if db_conv_id:
+        conv = db.query(Conversation).filter(Conversation.id == db_conv_id, Conversation.user_id == 1).first()
+    else:
+        conv = None
+        
+    if not conv:
+        title = request.message[:30] + ("..." if len(request.message) > 30 else "")
+        conv = Conversation(user_id=1, title=title)
+        db.add(conv)
+        db.commit()
+        db.refresh(conv)
+        
+    # Save User message
+    user_msg = ChatMessage(
+        conversation_id=conv.id,
+        sender="user",
+        content=request.message
+    )
+    db.add(user_msg)
+    db.commit()
+    
+    # Store local integer copy to avoid detached instance issues in the generator thread
+    conv_id = conv.id
+
+    def event_generator():
+        import json
+        import datetime
+        
+        full_response_text = ""
+        metadata_received = None
+        
+        # Immediately yield conversationId so client knows where to store
+        yield f"data: {json.dumps({'type': 'init', 'conversationId': str(conv_id)})}\n\n"
+        
+        # Fresh DB session for the duration of the generator execution
+        generator_db = SessionLocal()
+        try:
+            chat_service = StockChatService(generator_db)
+            for item in chat_service.process_chat_stream(
+                request.message,
+                conversation_id=str(conv_id),
+                model=request.model,
+                temperature=request.temperature,
+                top_k=request.topK,
+                custom_system_prompt=request.systemPrompt
+            ):
+                if item.get("type") == "text":
+                    text = item.get("content", "")
+                    full_response_text += text
+                    yield f"data: {json.dumps({'type': 'text', 'content': text})}\n\n"
+                elif item.get("type") == "metadata":
+                    metadata_received = item
+                    yield f"data: {json.dumps({'type': 'metadata', 'sources': item.get('sources'), 'scores': item.get('scores'), 'comparison_table': item.get('comparison_table')})}\n\n"
+            
+            # Save Assistant response inside the generator's session
+            meta_str = None
+            if metadata_received:
+                sources = metadata_received.get("sources")
+                scores = metadata_received.get("scores")
+                comp_table = metadata_received.get("comparison_table")
+                if sources or scores or comp_table:
+                    meta_str = json.dumps({
+                        "sources": sources,
+                        "scores": scores,
+                        "comparison_table": comp_table
+                    })
+            
+            assistant_msg = ChatMessage(
+                conversation_id=conv_id,
+                sender="assistant",
+                content=full_response_text,
+                meta_json=meta_str
+            )
+            generator_db.add(assistant_msg)
+            
+            # Touch parent conversation update time
+            p_conv = generator_db.query(Conversation).filter(Conversation.id == conv_id).first()
+            if p_conv:
+                p_conv.updated_at = datetime.datetime.utcnow()
+                
+            generator_db.commit()
+        except Exception as e:
+            generator_db.rollback()
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+        finally:
+            generator_db.close()
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

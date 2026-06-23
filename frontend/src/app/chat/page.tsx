@@ -91,25 +91,66 @@ export default function StockChat() {
     };
   }, []);
 
-  // Load sessions from local storage
-  useEffect(() => {
-    const saved = localStorage.getItem("equity_ai_chat_sessions");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setSessions(parsed);
-        if (parsed.length > 0) {
-          setCurrentSessionId(parsed[0].id);
-          setMessages(parsed[0].messages);
-        } else {
+  // Fetch sessions from backend
+  const fetchSessions = async (autoSelectFirst = true) => {
+    try {
+      const res = await fetch(`${API_URL}/api/v1/conversations`);
+      if (res.ok) {
+        const data = await res.json();
+        const formatted: ChatSession[] = data.map((c: any) => ({
+          id: String(c.id),
+          title: c.title,
+          messages: []
+        }));
+        setSessions(formatted);
+        
+        if (autoSelectFirst && formatted.length > 0) {
+          setCurrentSessionId(formatted[0].id);
+          loadSessionMessages(formatted[0].id);
+        } else if (formatted.length === 0) {
           startNewSession();
         }
-      } catch (e) {
-        startNewSession();
       }
-    } else {
-      startNewSession();
+    } catch (e) {
+      console.error("Error loading chat sessions from database:", e);
     }
+  };
+
+  // Load messages for specific session
+  const loadSessionMessages = async (sessionId: string) => {
+    if (!sessionId || isNaN(Number(sessionId))) {
+      setMessages([]);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/api/v1/conversations/${sessionId}/messages`);
+      if (res.ok) {
+        const data = await res.json();
+        const msgs: ChatMessage[] = data.map((m: any) => {
+          let meta = { sources: [], scores: undefined, comparison_table: undefined };
+          if (m.meta_json) {
+            try {
+              meta = JSON.parse(m.meta_json);
+            } catch (e) {}
+          }
+          return {
+            role: m.sender as "user" | "assistant",
+            text: m.content,
+            sources: meta.sources || [],
+            scores: meta.scores || undefined,
+            comparison_table: meta.comparison_table || undefined
+          };
+        });
+        setMessages(msgs);
+      }
+    } catch (e) {
+      console.error("Error loading session messages:", e);
+    }
+  };
+
+  // Fetch initial conversations list
+  useEffect(() => {
+    fetchSessions();
   }, []);
 
   // Load chat settings from local storage
@@ -141,58 +182,37 @@ export default function StockChat() {
     }
   }, []);
 
-  // Save sessions to local storage when messages or sessions change
-  const saveSessions = (updatedSessions: ChatSession[]) => {
-    setSessions(updatedSessions);
-    localStorage.setItem("equity_ai_chat_sessions", JSON.stringify(updatedSessions));
-  };
-
   const startNewSession = () => {
-    // Prevent starting a new session if the current active session is already blank
-    const currentSession = sessions.find((s) => s.id === currentSessionId);
-    if (currentSession && currentSession.messages.length === 0) {
+    // If the current session is already new and blank, don't spawn another one
+    if (currentSessionId && isNaN(Number(currentSessionId)) && messages.length === 0) {
       return;
     }
-
-    const newId = Math.random().toString(36).substring(7);
-    const newSession: ChatSession = {
-      id: newId,
-      title: `Analysis Session ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-      messages: []
-    };
-    const updated = [newSession, ...sessions];
-    setCurrentSessionId(newId);
+    // Set a temporary temp session ID until first message saves it in database
+    const tempId = "temp-" + Math.random().toString(36).substring(7);
+    setCurrentSessionId(tempId);
     setMessages([]);
-    saveSessions(updated);
   };
 
   const selectSession = (id: string) => {
-    const sess = sessions.find((s) => s.id === id);
-    if (sess) {
-      setCurrentSessionId(id);
-      setMessages(sess.messages);
-    }
+    setCurrentSessionId(id);
+    loadSessionMessages(id);
   };
 
-  const deleteSession = (id: string, e: React.MouseEvent) => {
+  const deleteSession = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const updated = sessions.filter((s) => s.id !== id);
-    saveSessions(updated);
-    if (currentSessionId === id) {
-      if (updated.length > 0) {
-        setCurrentSessionId(updated[0].id);
-        setMessages(updated[0].messages);
-      } else {
-        const newId = Math.random().toString(36).substring(7);
-        const newSession: ChatSession = {
-          id: newId,
-          title: "New Analysis",
-          messages: []
-        };
-        setCurrentSessionId(newId);
-        setMessages([]);
-        saveSessions([newSession]);
+    if (id.startsWith("temp-")) {
+      fetchSessions(true);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/api/v1/conversations/${id}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        fetchSessions(true);
       }
+    } catch (e) {
+      console.error("Error deleting session:", e);
     }
   };
 
@@ -227,26 +247,14 @@ export default function StockChat() {
     if (!textToSend.trim() || loading) return;
 
     const userMsg = textToSend.trim();
+    // Optimistic user update
     const newMessages: ChatMessage[] = [...messages, { role: "user", text: userMsg }];
     setMessages(newMessages);
     setInput("");
     setLoading(true);
     setExpandedSource(null);
 
-    // Update session title on first message
-    let sessionTitle = sessions.find(s => s.id === currentSessionId)?.title || "Analysis Session";
-    if (messages.length === 0) {
-      sessionTitle = userMsg.length > 25 ? userMsg.substring(0, 25) + "..." : userMsg;
-    }
-
-    // Temporary update to session list
-    const updatedSessions = sessions.map((s) => {
-      if (s.id === currentSessionId) {
-        return { ...s, title: sessionTitle, messages: newMessages };
-      }
-      return s;
-    });
-    saveSessions(updatedSessions);
+    const isTemp = currentSessionId.startsWith("temp-");
 
     try {
       const res = await fetch(`${API_URL}/api/v1/stock-chat`, {
@@ -254,47 +262,40 @@ export default function StockChat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMsg,
-          conversationId: currentSessionId,
+          conversationId: isTemp ? null : currentSessionId,
           model: selectedModel,
           temperature: temperature,
           topK: topK,
           systemPrompt: customSystemPrompt || undefined
         })
       });
-      const data = await res.json();
       
-      const replyMessages: ChatMessage[] = [
-        ...newMessages,
-        { 
-          role: "assistant", 
-          text: data.answer,
-          sources: data.sources || [],
-          scores: data.scores || undefined
+      if (res.ok) {
+        const data = await res.json();
+        
+        // If it was a new temp conversation, set database conversation ID and reload session list
+        if (isTemp && data.conversationId) {
+          setCurrentSessionId(String(data.conversationId));
+          fetchSessions(false);
         }
-      ];
-      setMessages(replyMessages);
 
-      const finalSessions = sessions.map((s) => {
-        if (s.id === currentSessionId) {
-          return { ...s, title: sessionTitle, messages: replyMessages };
-        }
-        return s;
-      });
-      saveSessions(finalSessions);
-
+        setMessages((prev) => [
+          ...prev.filter(m => m.role === "user"), // Keep user message
+          { 
+            role: "assistant", 
+            text: data.answer,
+            sources: data.sources || [],
+            scores: data.scores || undefined
+          }
+        ]);
+      } else {
+        throw new Error("API call failed");
+      }
     } catch (err) {
-      const errorMessages: ChatMessage[] = [
-        ...newMessages,
+      setMessages((prev) => [
+        ...prev,
         { role: "assistant", text: "Failed to fetch response. Please verify Ollama and backend connection." }
-      ];
-      setMessages(errorMessages);
-      const finalSessions = sessions.map((s) => {
-        if (s.id === currentSessionId) {
-          return { ...s, messages: errorMessages };
-        }
-        return s;
-      });
-      saveSessions(finalSessions);
+      ]);
     } finally {
       setLoading(false);
     }
@@ -441,6 +442,17 @@ export default function StockChat() {
             <History className="h-3.5 w-3.5" />
             <span>Recent Analysis</span>
           </div>
+          
+          {/* Temporary Blank Session Indicator in Sidebar */}
+          {currentSessionId.startsWith("temp-") && (
+            <div className="flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold cursor-pointer bg-slate-200/60 dark:bg-[#1C233D] text-slate-900 dark:text-white">
+              <div className="flex items-center space-x-2 truncate">
+                <MessageSquare className="h-3.5 w-3.5 opacity-60 flex-shrink-0" />
+                <span className="truncate italic">New Research Session</span>
+              </div>
+            </div>
+          )}
+
           {sessions.map((s) => (
             <div
               key={s.id}
@@ -467,7 +479,7 @@ export default function StockChat() {
         </div>
 
         {/* Bottom Panel Info */}
-        <div className="p-4 border-t border-slate-200 dark:border-[#1E2538] text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider space-y-1">
+        <div className="p-4 border-t border-slate-200 dark:border-[#1E2538] text-[9px] text-slate-550 dark:text-slate-400 font-bold uppercase tracking-wider space-y-1">
           <span>{selectedModel} Active Node</span>
         </div>
       </div>
@@ -535,7 +547,7 @@ export default function StockChat() {
                         <span className="text-[10px] font-black text-blue-600 dark:text-[#00E5FF] uppercase tracking-widest">{item.tag}</span>
                         <ArrowUpRight className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-500 dark:group-hover:text-[#00E5FF] transition-all" />
                       </div>
-                      <p className="text-xs text-slate-700 dark:text-slate-355 font-semibold mt-2.5">{item.text}</p>
+                      <p className="text-xs text-slate-700 dark:text-slate-300 font-semibold mt-2.5">{item.text}</p>
                     </button>
                   );
                 })}
@@ -637,7 +649,7 @@ export default function StockChat() {
                                   </div>
                                 </button>
                                 {isExpanded && (
-                                  <div className="px-3 py-2.5 bg-slate-50/50 dark:bg-[#07090F] border-t border-slate-200 dark:border-[#1E2538]/70 text-[11px] text-slate-650 dark:text-slate-400 italic leading-relaxed">
+                                  <div className="px-3 py-2.5 bg-slate-50/50 dark:bg-[#07090F] border-t border-slate-200 dark:border-[#1E2538]/70 text-[11px] text-slate-600 dark:text-slate-400 italic leading-relaxed">
                                     "{src.content}"
                                   </div>
                                 )}
@@ -795,26 +807,23 @@ export default function StockChat() {
             <div className="px-6 py-4 bg-slate-50 dark:bg-[#080A10]/50 border-t border-slate-250 dark:border-[#1E2538] flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => {
-                  if (confirm("Are you sure you want to delete all chat history? This action is irreversible.")) {
-                    localStorage.removeItem("equity_ai_chat_sessions");
-                    setSessions([]);
-                    setMessages([]);
-                    setSettingsOpen(false);
-                    // Spawn a default session
-                    const newId = Math.random().toString(36).substring(7);
-                    const newSession: ChatSession = {
-                      id: newId,
-                      title: "New Analysis",
-                      messages: []
-                    };
-                    setCurrentSessionId(newId);
-                    saveSessions([newSession]);
+                onClick={async () => {
+                  if (confirm("Are you sure you want to delete all chat history from the database? This action is irreversible.")) {
+                    try {
+                      // Delete each database conversation sequentially
+                      for (const s of sessions) {
+                        await fetch(`${API_URL}/api/v1/conversations/${s.id}`, { method: "DELETE" });
+                      }
+                      fetchSessions(true);
+                      setSettingsOpen(false);
+                    } catch (e) {
+                      console.error("Error clearing database conversations:", e);
+                    }
                   }
                 }}
                 className="px-3.5 py-2 border border-red-200 dark:border-red-900/30 text-[10px] text-red-500 hover:bg-red-500/5 font-bold uppercase tracking-wider rounded-xl transition-all"
               >
-                Clear History
+                Clear DB History
               </button>
 
               <div className="flex space-x-2">

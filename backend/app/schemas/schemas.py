@@ -236,3 +236,25 @@ class StockChatResponse(BaseModel):
     sources: List[Dict[str, Any]]
     scores: Optional[Dict[str, float]] = None
     comparison_table: Optional[List[Dict[str, Any]]] = None
+    conversationId: Optional[str] = None
+
+class ChatMessageResponse(BaseModel):
+    id: int
+    conversation_id: int
+    sender: str
+    content: str
+    created_at: datetime
+    meta_json: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class ConversationResponse(BaseModel):
+    id: int
+    user_id: int
+    title: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

@@ -35,6 +35,35 @@ class OllamaClient:
             logger.error(f"Error calling Ollama LLM generate completion: {e}")
             raise Exception(f"Ollama generation failed: {e}")
 
+    def generate_completion_stream(self, prompt: str, system_prompt: Optional[str] = None, temperature: Optional[float] = None, model: Optional[str] = None):
+        url = f"{self.base_url}/api/generate"
+        payload = {
+            "model": model or self.llm_model,
+            "prompt": prompt,
+            "stream": True
+        }
+        if system_prompt:
+            payload["system"] = system_prompt
+        if temperature is not None:
+            payload["options"] = {"temperature": temperature}
+            
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        try:
+            response = requests.post(url, json=payload, headers=headers, stream=True, timeout=90)
+            response.raise_for_status()
+            import json
+            for line in response.iter_lines():
+                if line:
+                    chunk = json.loads(line.decode("utf-8"))
+                    text = chunk.get("response", "")
+                    if text:
+                        yield text
+        except Exception as e:
+            logger.error(f"Error calling Ollama LLM stream: {e}")
+            yield f"\n[Stream Error: {e}]"
+
     def generate_embeddings(self, text: str) -> List[float]:
         url = f"{self.base_url}/api/embed"
         payload = {

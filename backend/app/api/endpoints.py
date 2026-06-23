@@ -499,3 +499,70 @@ def refresh_stock_articles(symbol: str, db: Session = Depends(get_db)):
     t.start()
     return {"status": "Article refresh started in background", "symbol": symbol.upper()}
 
+
+# 13. PDF Report Export
+from fastapi.responses import StreamingResponse
+from app.services.pdf_exporter import generate_pdf_report
+from app.services.rag import RagService
+from app.services.analysis import AnalysisService
+
+@router.get("/stock/{symbol}/export-pdf")
+def export_stock_report_pdf(symbol: str, db: Session = Depends(get_db)):
+    """Generate and download qualitative research PDF."""
+    stock = db.query(Stock).filter(Stock.symbol == symbol.upper()).first()
+    if not stock:
+        raise HTTPException(status_code=404, detail="Stock not found")
+        
+    rag = RagService(db)
+    stock_data = rag.get_structured_stock_data(symbol)
+    
+    analysis_service = AnalysisService(db)
+    report_res = analysis_service.get_latest_report(symbol)
+
+    if not report_res:
+        # Fallback if report has not been generated yet
+        raise HTTPException(status_code=400, detail="Please generate the AI Research report first on the Analysis page before exporting.")
+        
+    # Standard format match ReportResult schema
+    report_dict = {
+        "rating": report_res.rating,
+        "score": report_res.score,
+        "confidence_score": report_res.confidence_score,
+        "report": {
+            "business_overview": report_res.business_overview,
+            "revenue_analysis": report_res.revenue_analysis,
+            "profit_analysis": report_res.profit_analysis,
+            "cash_flow_analysis": report_res.cash_flow_analysis,
+            "management_commentary_summary": report_res.management_commentary_summary,
+            "opportunities": report_res.opportunities,
+            "risks": report_res.risks,
+            "bull_case": report_res.bull_case,
+            "bear_case": report_res.bear_case,
+            "final_investment_thesis": report_res.final_investment_thesis,
+            "valuation_assessment": report_res.valuation_assessment,
+        }
+    }
+    
+    pdf_buf = generate_pdf_report(stock_data, report_dict)
+    return StreamingResponse(
+        pdf_buf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=Stock_Report_{symbol.upper()}.pdf"}
+    )
+
+
+# 14. Stock Comparison Endpoint
+@router.get("/stocks/compare")
+def compare_stocks(symbol_a: str, symbol_b: str, db: Session = Depends(get_db)):
+    """Fetch comparative metrics for two stocks."""
+    rag = RagService(db)
+    data_a = rag.get_structured_stock_data(symbol_a)
+    data_b = rag.get_structured_stock_data(symbol_b)
+    if not data_a or not data_b:
+        raise HTTPException(status_code=404, detail="One or both stock tickers not found")
+    return {
+        "stock_a": data_a,
+        "stock_b": data_b
+    }
+
+

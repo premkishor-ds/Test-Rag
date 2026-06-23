@@ -513,9 +513,14 @@ def fetch_and_store_articles(
             db.refresh(article)
             new_articles.append(article)
             logger.info(f"[{symbol}] Saved article: {title[:60]}... [{sentiment}]")
+            
+            # Risk & Sentiment scan alert hook
+            from app.services.alert_manager import AlertManager
+            AlertManager.inspect_and_alert(symbol, title, sentiment, summary or "")
         except Exception as e:
             db.rollback()
             logger.warning(f"[{symbol}] Could not save article (likely duplicate URL): {e}")
 
     logger.info(f"[{symbol}] Article fetch complete. {len(new_articles)} new articles saved.")
     return new_articles
+

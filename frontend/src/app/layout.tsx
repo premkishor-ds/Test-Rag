@@ -38,7 +38,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="flex flex-col min-h-screen text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-[#06080F] font-sans antialiased transition-colors duration-200">
+      <body suppressHydrationWarning className="flex flex-col min-h-screen text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-[#06080F] font-sans antialiased transition-colors duration-200">
         {/* Decorative background glow (Only visible/relevant in dark mode) */}
         <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-cyan-500/5 dark:bg-cyan-500/5 rounded-full blur-[120px] pointer-events-none -z-50"></div>
         <div className="absolute top-1/3 right-1/4 w-[600px] h-[600px] bg-indigo-500/5 dark:bg-indigo-500/5 rounded-full blur-[150px] pointer-events-none -z-50"></div>

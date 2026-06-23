@@ -75,6 +75,22 @@ export default function DocumentsPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [stocks, setStocks] = useState<Array<{ symbol: string; name: string }>>([]);
+
+  const fetchStocks = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/v1/stocks`);
+      const data = await res.json();
+      setStocks(data);
+      if (data.length > 0) {
+        setUploadSymbol(data[0].symbol);
+        setTriggerSymbol(data[0].symbol);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -94,6 +110,10 @@ export default function DocumentsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchStocks();
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -215,13 +235,17 @@ export default function DocumentsPage() {
               <span>Upload Document</span>
             </h2>
             <form onSubmit={handleUpload} className="space-y-3">
-              <input
-                className="w-full px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] text-slate-900 dark:text-slate-200 text-sm placeholder-slate-400 focus:outline-none focus:border-blue-600 dark:focus:border-[#00E5FF]/50"
-                placeholder="Stock Symbol (e.g. TCS)"
+              <select
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:border-blue-600 dark:focus:border-[#00E5FF]/50"
                 value={uploadSymbol}
                 onChange={(e) => setUploadSymbol(e.target.value)}
-                required
-              />
+              >
+                {stocks.map((s) => (
+                  <option key={s.symbol} value={s.symbol}>
+                    {s.symbol} — {s.name || "Unknown"}
+                  </option>
+                ))}
+              </select>
               <select
                 className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:border-blue-600 dark:focus:border-[#00E5FF]/50"
                 value={uploadType}
@@ -279,13 +303,17 @@ export default function DocumentsPage() {
               Search the internet and download a PDF automatically.
             </p>
             <form onSubmit={handleTrigger} className="space-y-3">
-              <input
-                className="w-full px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] text-slate-900 dark:text-slate-200 text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-600 dark:focus:border-[#00F5D4]/50"
-                placeholder="Stock Symbol (e.g. INFOSYS)"
+              <select
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:border-indigo-600 dark:focus:border-[#00F5D4]/50"
                 value={triggerSymbol}
                 onChange={(e) => setTriggerSymbol(e.target.value)}
-                required
-              />
+              >
+                {stocks.map((s) => (
+                  <option key={s.symbol} value={s.symbol}>
+                    {s.symbol} — {s.name || "Unknown"}
+                  </option>
+                ))}
+              </select>
               <select
                 className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:border-indigo-600 dark:focus:border-[#00F5D4]/50"
                 value={triggerType}

@@ -227,13 +227,17 @@ export default function WatchlistPage() {
           {/* Add ticker control */}
           <div className="flex flex-wrap items-center justify-between p-4 rounded-xl bg-white border border-slate-200 dark:bg-[#0E121E]/60 dark:border-[#1E2538] gap-4 shadow-sm transition-colors duration-200">
             <form onSubmit={handleAddStock} className="flex items-center space-x-2 w-full sm:w-auto">
-              <input 
-                type="text" 
+              <select 
                 value={newSymbol} 
                 onChange={(e) => setNewSymbol(e.target.value)} 
-                placeholder="Enter symbol (e.g., TCS)..." 
-                className="bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] focus:border-blue-600 dark:focus:border-[#00E5FF] rounded-lg px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none transition-colors" 
-              />
+                className="bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] rounded-lg px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-blue-600 dark:focus:border-[#00E5FF] transition-colors"
+              >
+                {stocks.map((s) => (
+                  <option key={s.symbol} value={s.symbol}>
+                    {s.symbol} — {s.name || "Unknown"}
+                  </option>
+                ))}
+              </select>
               <button 
                 type="submit" 
                 className="flex items-center space-x-1 px-4 py-2 bg-blue-600 dark:bg-[#00E5FF] text-white dark:text-[#080A10] rounded-lg text-xs font-bold hover:opacity-90 transition-all active:scale-95 shadow-sm"

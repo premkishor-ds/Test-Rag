@@ -686,13 +686,144 @@ def _download_pdf_from_urls(pdf_urls: List[str], save_path: str) -> Optional[str
     return None
 
 
+def _get_screener_pdf_links(symbol: str, target_type: str, financial_year: int, quarter: Optional[str] = None) -> List[str]:
+    """
+    Scrape Screener.in company page for PDF links.
+    Categorizes based on target_type:
+      - 'annual_report'
+      - 'concall'
+      - 'presentation'
+      - 'quarterly_result'
+    """
+    url = f"https://www.screener.in/company/{symbol.upper()}/"
+    import time
+    time.sleep(1.0)
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        )
+    }
+    candidate_urls = []
+    
+    if not BeautifulSoup:
+        logger.warning("BeautifulSoup not available, skipping Screener.in scraping.")
+        return []
+
+    try:
+        logger.info(f"Fetching Screener.in page for {symbol} to extract {target_type}...")
+        res = requests.get(url, headers=headers, timeout=10)
+        if res.status_code != 200:
+            logger.warning(f"Screener.in request for {symbol} returned status code {res.status_code}")
+            return []
+            
+        soup = BeautifulSoup(res.text, "html.parser")
+        year_str = str(financial_year)
+        short_year = str(financial_year)[2:]  # e.g. "24" for 2024
+        prev_short_year = str(financial_year - 1)[2:]  # e.g. "23" for 2024
+        
+        for a in soup.find_all("a"):
+            href = a.get("href", "")
+            text = a.get_text().strip()
+            if not href:
+                continue
+                
+            href_lower = href.lower()
+            text_lower = text.lower()
+            
+            # Must look like a PDF or BSE/NSE filing document link
+            is_doc_link = (
+                href_lower.endswith(".pdf")
+                or ".pdf#" in href_lower
+                or "annpdfopen.aspx" in href_lower
+                or "xml-data/corpfiling" in href_lower
+            )
+            if not is_doc_link:
+                continue
+                
+            # Classify
+            if target_type == "annual_report":
+                is_annual = (
+                    "financial year" in text_lower 
+                    or "annual report" in text_lower 
+                    or "annual-report" in href_lower 
+                    or "annual_reports" in href_lower 
+                    or "annualreport" in href_lower
+                )
+                has_year = (
+                    year_str in text_lower 
+                    or year_str in href_lower
+                    or (short_year in text_lower and f"fy{short_year}" in text_lower.replace(" ", ""))
+                    or f"{prev_short_year}_{short_year}" in href_lower
+                    or f"{prev_short_year}-{short_year}" in href_lower
+                    or f"{financial_year-1}-{financial_year}" in href_lower
+                )
+                if is_annual and has_year:
+                    candidate_urls.append(href)
+                    
+            elif target_type in ["concall", "presentation", "quarterly_result"]:
+                is_match = False
+                if target_type == "concall":
+                    is_match = (
+                        "transcript" in text_lower 
+                        or "concall" in text_lower 
+                        or "con-call" in text_lower 
+                        or "earning call" in text_lower 
+                        or "earnings call" in text_lower 
+                        or "ec_transcript" in href_lower 
+                        or "transcript" in href_lower
+                    )
+                elif target_type == "presentation":
+                    is_match = (
+                        "presentation" in text_lower 
+                        or "ppt" in text_lower 
+                        or "fact sheet" in text_lower 
+                        or "factsheet" in text_lower 
+                        or "investor presentation" in text_lower 
+                        or "ip_" in href_lower 
+                        or "presentation" in href_lower 
+                        or "fact" in href_lower
+                    )
+                elif target_type == "quarterly_result":
+                    is_match = (
+                        "result" in text_lower 
+                        or "financial result" in text_lower 
+                        or "notes" in text_lower 
+                        or "statement" in text_lower 
+                        or "result" in href_lower
+                    )
+                
+                if is_match:
+                    has_year = (
+                        year_str in text_lower 
+                        or year_str in href_lower 
+                        or f"fy{short_year}" in text_lower.replace(" ", "") 
+                        or f"_{short_year}" in href_lower 
+                        or f"-{short_year}" in href_lower
+                    )
+                    has_quarter = True
+                    if quarter:
+                        q_lower = quarter.lower()
+                        has_quarter = q_lower in text_lower or q_lower in href_lower
+                    
+                    if has_year and has_quarter:
+                        candidate_urls.append(href)
+                        
+        logger.info(f"Screener.in extraction found {len(candidate_urls)} PDF links for {symbol} {target_type} FY{financial_year}")
+    except Exception as e:
+        logger.error(f"Error extracting PDF links from Screener.in for {symbol}: {e}")
+        
+    return candidate_urls
+
+
 def fetch_and_save_pdf(symbol: str, financial_year: int) -> Optional[str]:
     """
     Download the annual report PDF for a stock symbol and financial year.
     Strategy order:
-      1. Try BSE/NSE direct known URL patterns
-      2. Search DuckDuckGo for filetype:pdf links
-      3. Fallback to Yahoo Search
+      1. Scrape Screener.in for direct links (Primary)
+      2. Try BSE/NSE direct known URL patterns
+      3. Search web (Bing / DDG / Yahoo) (Fallback)
     """
     logger.info(f"Fetching Annual Report PDF for {symbol} FY{financial_year}...")
 
@@ -701,13 +832,19 @@ def fetch_and_save_pdf(symbol: str, financial_year: int) -> Optional[str]:
     file_name = f"{symbol.upper()}_{financial_year}_AnnualReport.pdf"
     save_path = os.path.join(doc_dir, file_name)
 
-    # Strategy 1: BSE/NSE direct known URLs
+    # Strategy 1: Screener.in scraper (Primary)
+    screener_urls = _get_screener_pdf_links(symbol, "annual_report", financial_year)
+    result = _download_pdf_from_urls(screener_urls, save_path)
+    if result:
+        return result
+
+    # Strategy 2: BSE/NSE direct known URLs (Fallback 1)
     direct_urls = _try_bse_nse_direct_download(symbol, financial_year)
     result = _download_pdf_from_urls(direct_urls, save_path)
     if result:
         return result
 
-    # Strategy 2 & 3: Web search
+    # Strategy 3: Web search (Fallback 2)
     search_queries = [
         f"{symbol} annual report {financial_year} filetype:pdf site:bseindia.com OR site:nseindia.com OR site:moneycontrol.com",
         f"{symbol} annual report {financial_year} filetype:pdf",
@@ -740,7 +877,7 @@ def fetch_corporate_document(
 ) -> Optional[str]:
     """
     Download a specific corporate document (quarterly result, concall, presentation)
-    for a stock. Uses multiple search query variations and the shared download helper.
+    for a stock. Uses Screener.in first, then falls back to web searches.
     """
     q_str = f" {quarter}" if quarter else ""
     logger.info(f"Fetching {document_type}{q_str} FY{financial_year} for {symbol}...")
@@ -751,6 +888,13 @@ def fetch_corporate_document(
     file_name = f"{symbol.upper()}_{financial_year}{q_suffix}_{document_type}.pdf"
     save_path = os.path.join(doc_dir, file_name)
 
+    # Strategy 1: Screener.in scraper (Primary)
+    screener_urls = _get_screener_pdf_links(symbol, document_type, financial_year, quarter)
+    result = _download_pdf_from_urls(screener_urls, save_path)
+    if result:
+        return result
+
+    # Strategy 2: Web search queries (Fallback)
     # Build query variations based on document type
     if document_type == "quarterly_result":
         queries = [

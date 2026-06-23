@@ -375,13 +375,43 @@ class MonthlyScheduler:
 
 def run_scheduler_loop():
     scheduler = MonthlyScheduler()
-    # Runs the job immediately upon startup, then every 30 days
+    # Runs the job immediately upon startup, then checks weekly or if stocks.csv changes
+    stocks_csv_path = os.path.join(settings.DATA_DIR, "stocks.csv")
+    last_mtime = 0.0
+    if os.path.exists(stocks_csv_path):
+        last_mtime = os.path.getmtime(stocks_csv_path)
+
+    # Initial boot scan
+    try:
+        scheduler.scan_and_update()
+    except Exception as e:
+        logger.error(f"Initial scheduler exception: {e}")
+
+    check_interval = 3600  # Check files/timers every hour
+    seconds_in_week = 7 * 86400
+    time_since_last_run = 0.0
+
     while True:
         try:
-            scheduler.scan_and_update()
+            time.sleep(check_interval)
+            time_since_last_run += check_interval
+
+            # Check if stocks.csv modification time has changed
+            csv_changed = False
+            if os.path.exists(stocks_csv_path):
+                current_mtime = os.path.getmtime(stocks_csv_path)
+                if current_mtime > last_mtime:
+                    logger.info("Detected change in stocks.csv. Triggering update scan...")
+                    last_mtime = current_mtime
+                    csv_changed = True
+
+            # Trigger if a week has passed or if CSV was modified
+            if time_since_last_run >= seconds_in_week or csv_changed:
+                scheduler.scan_and_update()
+                time_since_last_run = 0.0
         except Exception as e:
             logger.error(f"Scheduler exception: {e}")
-        time.sleep(30 * 86400) # Sleep for 30 days
+
 
 
 def run_daily_article_loop():

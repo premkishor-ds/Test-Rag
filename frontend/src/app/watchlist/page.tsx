@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { ListPlus, Trash2, Plus, ArrowUpRight, ArrowDownRight } from "lucide-react";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 interface Watchlist {
   id: number;
   name: string;
@@ -30,7 +32,7 @@ export default function WatchlistPage() {
 
   const fetchWatchlists = async () => {
     try {
-      const res = await fetch("process.env.NEXT_PUBLIC_API_URL/api/v1/watchlists");
+      const res = await fetch(`${API_URL}/api/v1/watchlists`);
       const data = await res.json();
       setWatchlists(data);
       if (data.length > 0 && !selectedId) {
@@ -45,7 +47,7 @@ export default function WatchlistPage() {
     if (!selectedId) return;
     setLoading(true);
     try {
-      const res = await fetch(`process.env.NEXT_PUBLIC_API_URL/api/v1/watchlist/${selectedId}/track`);
+      const res = await fetch(`${API_URL}/api/v1/watchlist/${selectedId}/track`);
       const data = await res.json();
       setItems(data);
     } catch (err) {
@@ -68,7 +70,7 @@ export default function WatchlistPage() {
     if (!newListName.trim()) return;
 
     try {
-      const res = await fetch("process.env.NEXT_PUBLIC_API_URL/api/v1/watchlist", {
+      const res = await fetch(`${API_URL}/api/v1/watchlist`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newListName }),
@@ -89,7 +91,7 @@ export default function WatchlistPage() {
     if (!confirm("Are you sure you want to delete this watchlist?")) return;
 
     try {
-      const res = await fetch(`process.env.NEXT_PUBLIC_API_URL/api/v1/watchlist/${selectedId}`, {
+      const res = await fetch(`${API_URL}/api/v1/watchlist/${selectedId}`, {
         method: "DELETE",
       });
       if (res.ok) {
@@ -107,7 +109,7 @@ export default function WatchlistPage() {
     if (!selectedId || !newSymbol.trim()) return;
 
     try {
-      const res = await fetch(`process.env.NEXT_PUBLIC_API_URL/api/v1/watchlist/${selectedId}/stock`, {
+      const res = await fetch(`${API_URL}/api/v1/watchlist/${selectedId}/stock`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stock_symbol: newSymbol.toUpperCase() }),
@@ -126,7 +128,7 @@ export default function WatchlistPage() {
   const handleRemoveStock = async (symbol: string) => {
     if (!selectedId) return;
     try {
-      const res = await fetch(`process.env.NEXT_PUBLIC_API_URL/api/v1/watchlist/${selectedId}/stock/${symbol}`, {
+      const res = await fetch(`${API_URL}/api/v1/watchlist/${selectedId}/stock/${symbol}`, {
         method: "DELETE",
       });
       if (res.ok) {

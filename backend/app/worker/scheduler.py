@@ -32,6 +32,9 @@ class MonthlyScheduler:
             target_years = [current_year - 2, current_year - 1, current_year]
 
             for s in stocks:
+                if not s.sector or s.sector == "Unknown" or s.market_cap == 0.0:
+                    logger.info(f"Skipping auto-download of annual reports for unlisted/mock stock: {s.symbol}")
+                    continue
                 for fy in target_years:
                     existing_report = db.query(CorporateDocument).filter(
                         CorporateDocument.stock_symbol == s.symbol,
@@ -75,6 +78,9 @@ class MonthlyScheduler:
             doc_types = ["quarterly_result", "concall", "presentation"]
 
             for s in stocks:
+                if not s.sector or s.sector == "Unknown" or s.market_cap == 0.0:
+                    logger.info(f"Skipping auto-download of quarterly documents for unlisted/mock stock: {s.symbol}")
+                    continue
                 for q_info in quarters_to_check:
                     fy = q_info["year"]
                     q_num = q_info["quarter"]

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { TrendingUp, Award, Layers, ShieldAlert, Cpu, HeartPulse } from "lucide-react";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 interface Stock {
   symbol: string;
   name: string;
@@ -30,11 +32,11 @@ export default function Dashboard() {
     // Fetch stats and health from local backend (defaulting to localhost:8000)
     const fetchData = async () => {
       try {
-        const stocksRes = await fetch("process.env.NEXT_PUBLIC_API_URL/api/v1/stocks");
+        const stocksRes = await fetch(`${API_URL}/api/v1/stocks`);
         const stocksData = await stocksRes.json();
         setStocks(stocksData);
 
-        const healthRes = await fetch("process.env.NEXT_PUBLIC_API_URL/health");
+        const healthRes = await fetch(`${API_URL}/health`);
         const healthData = await healthRes.json();
         setHealth(healthData);
       } catch (err) {

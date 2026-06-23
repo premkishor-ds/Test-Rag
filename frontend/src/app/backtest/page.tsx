@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { TrendingUp, Percent, AlertCircle, Award, RotateCcw } from "lucide-react";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 interface BacktestMetrics {
   strategy_name: string;
   cagr: number;
@@ -29,7 +31,7 @@ export default function Backtester() {
   const handleRunBacktest = async () => {
     setLoading(true);
     try {
-      const res = await fetch("process.env.NEXT_PUBLIC_API_URL/api/v1/backtest", {
+      const res = await fetch(`${API_URL}/api/v1/backtest`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

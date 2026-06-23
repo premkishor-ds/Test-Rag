@@ -49,57 +49,46 @@ def fetch_stock_data_from_yahoo(symbol: str) -> dict:
     if "." not in yf_symbol:
         yf_symbol = f"{yf_symbol}.NS"
         
-    url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{yf_symbol}"
-    params = {"modules": "assetProfile,financialData,defaultKeyStatistics,price"}
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-    
     try:
-        response = requests.get(url, params=params, headers=headers, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        result = data.get("quoteSummary", {}).get("result", [])
-        if not result:
+        import yfinance as yf
+        logger.info(f"Fetching data for {yf_symbol} via yfinance...")
+        ticker = yf.Ticker(yf_symbol)
+        info = ticker.info
+        if not info or not info.get("longName"):
+            logger.warning(f"No info returned for {yf_symbol}")
             return {}
             
-        summary = result[0]
-        price = summary.get("price", {})
-        profile = summary.get("assetProfile", {})
-        findata = summary.get("financialData", {})
-        stats = summary.get("defaultKeyStatistics", {})
+        name = info.get("longName") or info.get("shortName") or symbol
+        sector = info.get("sector", "Unknown")
+        industry = info.get("industry", "Unknown")
         
-        name = price.get("longName") or price.get("shortName") or symbol
-        sector = profile.get("sector", "Unknown")
-        industry = profile.get("industry", "Unknown")
-        
-        raw_mcap = price.get("marketCap", {}).get("raw", 0.0)
+        raw_mcap = info.get("marketCap", 0.0)
         market_cap = round(raw_mcap / 10000000.0, 2) if raw_mcap else 0.0
         
-        roe = round(findata.get("returnOnEquity", {}).get("raw", 0.0) * 100, 2)
-        roce = round(findata.get("returnOnAssets", {}).get("raw", 0.0) * 100 * 1.3, 2)
+        roe = round((info.get("returnOnEquity") or 0.0) * 100, 2)
+        roce = round((info.get("returnOnAssets") or 0.0) * 100 * 1.3, 2)
         
-        raw_de = findata.get("debtToEquity", {}).get("raw", 0.0)
+        raw_de = info.get("debtToEquity", 0.0)
         debt_to_equity = round(raw_de / 100.0, 2) if raw_de else 0.0
         
-        raw_cf = findata.get("operatingCashflow", {}).get("raw", 0.0)
+        raw_cf = info.get("operatingCashflow", 0.0)
         cash_flow = round(raw_cf / 10000000.0, 2) if raw_cf else 0.0
         
-        rev_growth = round(findata.get("revenueGrowth", {}).get("raw", 0.0) * 100, 2)
-        prof_growth = round(findata.get("earningsGrowth", {}).get("raw", 0.0) * 100, 2)
+        rev_growth = round((info.get("revenueGrowth") or 0.0) * 100, 2)
+        prof_growth = round((info.get("earningsGrowth") or 0.0) * 100, 2)
         if prof_growth == 0.0:
             prof_growth = round(rev_growth * 1.1, 2)
             
-        pe_ratio = stats.get("forwardPE", {}).get("raw") or stats.get("trailingPE", {}).get("raw")
-        peg_ratio = stats.get("pegRatio", {}).get("raw")
+        pe_ratio = info.get("forwardPE") or info.get("trailingPE")
+        peg_ratio = info.get("pegRatio")
         
-        raw_rev = findata.get("totalRevenue", {}).get("raw", 0.0)
+        raw_rev = info.get("totalRevenue", 0.0)
         revenue = round(raw_rev / 10000000.0, 2) if raw_rev else 0.0
-        net_profit = round(revenue * (findata.get("profitMargins", {}).get("raw", 0.05)), 2)
+        net_profit = round(revenue * (info.get("profitMargins", 0.05) or 0.05), 2)
         
-        current_price = findata.get("currentPrice", {}).get("raw", 1.0)
-        fifty_high = stats.get("fiftyTwoWeekHigh", {}).get("raw") or (current_price * 1.2)
-        fifty_low = stats.get("fiftyTwoWeekLow", {}).get("raw") or (current_price * 0.8)
+        current_price = info.get("currentPrice") or info.get("regularMarketPrice") or 1.0
+        fifty_high = info.get("fiftyTwoWeekHigh") or (current_price * 1.2)
+        fifty_low = info.get("fiftyTwoWeekLow") or (current_price * 0.8)
         
         return {
             "name": name,
@@ -334,6 +323,17 @@ class IngestionEngine:
                 else:
                     if name:
                         stock.name = name
+                    # If sector or industry or market cap is missing, enrich it from Yahoo Finance
+                    if not stock.sector or stock.sector == "Unknown" or not stock.industry or stock.industry == "Unknown" or stock.market_cap == 0.0:
+                        logger.info(f"Enriching missing metadata for existing symbol: {symbol} via yfinance...")
+                        yf_data = fetch_stock_data_from_yahoo(symbol)
+                        if yf_data and yf_data.get("name") != symbol:
+                            if not stock.sector or stock.sector == "Unknown":
+                                stock.sector = yf_data.get("sector", "Unknown")
+                            if not stock.industry or stock.industry == "Unknown":
+                                stock.industry = yf_data.get("industry", "Unknown")
+                            if stock.market_cap == 0.0:
+                                stock.market_cap = yf_data.get("market_cap", 0.0)
                     if row.get("sector"):
                         stock.sector = row.get("sector").strip()
                     if row.get("industry"):
@@ -498,7 +498,7 @@ def _try_bse_nse_direct_download(symbol: str, financial_year: int) -> List[str]:
 
 def search_internet_for_pdf_links(query: str) -> List[str]:
     """
-    Search DuckDuckGo (primary) and Yahoo Search (fallback) for PDF links.
+    Search Bing Search (primary), DuckDuckGo (fallback), and Yahoo Search (fallback) for PDF links.
     Returns a deduplicated list of candidate PDF URLs.
     """
     pdf_urls = []
@@ -517,64 +517,88 @@ def search_internet_for_pdf_links(query: str) -> List[str]:
         "DNT": "1",
     }
 
-    # 1. Try DuckDuckGo HTML
-    ddg_url = f"https://html.duckduckgo.com/html/?q={encoded_query}"
+    # 1. Try Bing Search first
+    bing_url = f"https://www.bing.com/search?q={encoded_query}"
     try:
-        response = requests.get(ddg_url, headers=headers, timeout=15)
+        response = requests.get(bing_url, headers=headers, timeout=15)
         if response.status_code == 200 and BeautifulSoup:
             soup = BeautifulSoup(response.text, "html.parser")
-
-            # FIX: DDG changed its HTML in 2024 — use result__a (actual link anchor)
-            # and also check result__url (legacy, kept for compatibility)
-            for css_class in ["result__a", "result__url"]:
-                anchors = soup.find_all("a", class_=css_class)
-                for a in anchors:
-                    href = a.get("href", "")
-                    # DDG wraps links in a redirect: /l/?uddg=<encoded_url>
-                    if "uddg=" in href:
-                        parsed = urlparse(href)
-                        uddg_list = parse_qs(parsed.query).get("uddg")
-                        if uddg_list:
-                            href = urllib.parse.unquote(uddg_list[0])
-                    if href and (".pdf" in href.lower()):
-                        pdf_urls.append(href)
-
-            logger.info(f"DuckDuckGo returned {len(pdf_urls)} PDF candidate(s) for: {query}")
-        else:
-            logger.warning(f"DuckDuckGo returned status {response.status_code}")
-    except Exception as e:
-        logger.warning(f"DuckDuckGo search failed or timed out: {e}")
-
-    if pdf_urls:
-        # Deduplicate while preserving order
-        seen = set()
-        deduped = [u for u in pdf_urls if not (u in seen or seen.add(u))]
-        return deduped
-
-    # 2. Fallback to Yahoo Search
-    logger.info("DuckDuckGo returned no PDF links. Falling back to Yahoo Search...")
-    yahoo_url = f"https://search.yahoo.com/search?p={encoded_query}"
-    try:
-        response = requests.get(yahoo_url, headers=headers, timeout=15)
-        if response.status_code == 200 and BeautifulSoup:
-            soup = BeautifulSoup(response.text, "html.parser")
+            import base64
             for a in soup.find_all("a"):
                 href = a.get("href", "")
-                if ".pdf" in href.lower():
-                    # Yahoo wraps URLs: RU=<encoded_url>/RK=...
-                    if "RU=" in href:
-                        match = re.search(r"RU=([^/]+)", href)
-                        if match:
-                            decoded = urllib.parse.unquote(match.group(1))
-                            if ".pdf" in decoded.lower():
+                if "bing.com/ck/a?!" in href and "&u=" in href:
+                    parsed = urlparse(href)
+                    u_params = parse_qs(parsed.query)
+                    u_list = u_params.get("u")
+                    if u_list:
+                        u_val = u_list[0]
+                        if u_val.startswith("a1"):
+                            u_val = u_val[2:]
+                        elif u_val.startswith("a0"):
+                            u_val = u_val[2:]
+                        # Pad base64
+                        u_val += "=" * ((4 - len(u_val) % 4) % 4)
+                        try:
+                            decoded = base64.b64decode(u_val).decode("utf-8", errors="ignore")
+                            if decoded.lower().startswith("http") and ".pdf" in decoded.lower():
                                 pdf_urls.append(decoded)
-                    elif href.lower().startswith("http") and ".pdf" in href.lower():
-                        pdf_urls.append(href)
-            logger.info(f"Yahoo Search returned {len(pdf_urls)} PDF candidate(s)")
+                        except Exception:
+                            pass
+            logger.info(f"Bing Search returned {len(pdf_urls)} PDF candidate(s) for: {query}")
         else:
-            logger.warning(f"Yahoo Search returned status {response.status_code}")
+            logger.warning(f"Bing Search returned status {response.status_code}")
     except Exception as e:
-        logger.warning(f"Yahoo search failed or timed out: {e}")
+        logger.warning(f"Bing Search failed or timed out: {e}")
+
+    # 2. Fallback to DuckDuckGo HTML
+    if not pdf_urls:
+        logger.info("Bing returned no PDF links. Falling back to DuckDuckGo...")
+        ddg_url = f"https://html.duckduckgo.com/html/?q={encoded_query}"
+        try:
+            response = requests.get(ddg_url, headers=headers, timeout=2)
+            if response.status_code == 200 and BeautifulSoup:
+                soup = BeautifulSoup(response.text, "html.parser")
+                for css_class in ["result__a", "result__url"]:
+                    anchors = soup.find_all("a", class_=css_class)
+                    for a in anchors:
+                        href = a.get("href", "")
+                        if "uddg=" in href:
+                            parsed = urlparse(href)
+                            uddg_list = parse_qs(parsed.query).get("uddg")
+                            if uddg_list:
+                                href = urllib.parse.unquote(uddg_list[0])
+                        if href and (".pdf" in href.lower()):
+                            pdf_urls.append(href)
+                logger.info(f"DuckDuckGo returned {len(pdf_urls)} PDF candidate(s)")
+            else:
+                logger.warning(f"DuckDuckGo returned status {response.status_code}")
+        except Exception as e:
+            logger.warning(f"DuckDuckGo search failed or timed out: {e}")
+
+    # 3. Fallback to Yahoo Search
+    if not pdf_urls:
+        logger.info("Bing and DuckDuckGo returned no PDF links. Falling back to Yahoo Search...")
+        yahoo_url = f"https://search.yahoo.com/search?p={encoded_query}"
+        try:
+            response = requests.get(yahoo_url, headers=headers, timeout=2)
+            if response.status_code == 200 and BeautifulSoup:
+                soup = BeautifulSoup(response.text, "html.parser")
+                for a in soup.find_all("a"):
+                    href = a.get("href", "")
+                    if ".pdf" in href.lower():
+                        if "RU=" in href:
+                            match = re.search(r"RU=([^/]+)", href)
+                            if match:
+                                decoded = urllib.parse.unquote(match.group(1))
+                                if ".pdf" in decoded.lower():
+                                    pdf_urls.append(decoded)
+                        elif href.lower().startswith("http") and ".pdf" in href.lower():
+                            pdf_urls.append(href)
+                logger.info(f"Yahoo Search returned {len(pdf_urls)} PDF candidate(s)")
+            else:
+                logger.warning(f"Yahoo Search returned status {response.status_code}")
+        except Exception as e:
+            logger.warning(f"Yahoo search failed or timed out: {e}")
 
     # Deduplicate
     seen = set()

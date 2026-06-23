@@ -56,6 +56,7 @@ export default function StockChat() {
   const [activeSymbol, setActiveSymbol] = useState<string | null>(null);
   const [documents, setDocuments] = useState<string[]>([]);
   const [selectedDocument, setSelectedDocument] = useState<string>("");
+  const [sessionSearch, setSessionSearch] = useState("");
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState("qwen2.5:14b");
@@ -77,7 +78,13 @@ export default function StockChat() {
         .then(res => res.ok ? res.json() : [])
         .then(data => {
           setDocuments(data || []);
-          setSelectedDocument("");
+          const pendingFile = sessionStorage.getItem("pending_chat_file");
+          if (pendingFile && data.includes(pendingFile)) {
+            setSelectedDocument(pendingFile);
+            sessionStorage.removeItem("pending_chat_file");
+          } else {
+            setSelectedDocument("");
+          }
         })
         .catch(err => {
           console.error("Error fetching documents:", err);
@@ -177,9 +184,21 @@ export default function StockChat() {
     }
   };
 
-  // Fetch initial conversations list
+  // Fetch initial conversations list & Check for pending search prompt context
   useEffect(() => {
     fetchSessions();
+    
+    const pendingPrompt = sessionStorage.getItem("pending_chat_prompt");
+    const pendingSymbol = sessionStorage.getItem("pending_chat_symbol");
+    
+    if (pendingPrompt) {
+      setInput(pendingPrompt);
+      if (pendingSymbol) {
+        setActiveSymbol(pendingSymbol);
+      }
+      sessionStorage.removeItem("pending_chat_prompt");
+      sessionStorage.removeItem("pending_chat_symbol");
+    }
   }, []);
 
   // Load chat settings from local storage
@@ -485,6 +504,16 @@ export default function StockChat() {
             <History className="h-3.5 w-3.5" />
             <span>Recent Analysis</span>
           </div>
+
+          <div className="px-2 pb-2">
+            <input
+              type="text"
+              placeholder="Search chat history..."
+              value={sessionSearch}
+              onChange={(e) => setSessionSearch(e.target.value)}
+              className="w-full bg-slate-100 dark:bg-[#131A30] border border-slate-200 dark:border-[#1E2538] text-[11px] p-2 rounded-lg font-semibold placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
+            />
+          </div>
           
           {/* Temporary Blank Session Indicator in Sidebar */}
           {currentSessionId.startsWith("temp-") && (
@@ -496,8 +525,10 @@ export default function StockChat() {
             </div>
           )}
 
-          {sessions.map((s) => (
-            <div
+          {sessions
+            .filter((s) => s.title.toLowerCase().includes(sessionSearch.toLowerCase()))
+            .map((s) => (
+              <div
               key={s.id}
               onClick={() => selectSession(s.id)}
               className={`group flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${

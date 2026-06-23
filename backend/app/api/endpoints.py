@@ -618,12 +618,16 @@ def compare_stocks(symbol_a: str, symbol_b: str, db: Session = Depends(get_db)):
     }
 
 
-# 15. Global Semantic Search Endpoint
 @router.get("/search/global")
-def global_semantic_search(query: str, limit: int = 10, db: Session = Depends(get_db)):
+def global_semantic_search(
+    query: str,
+    stock_symbol: Optional[str] = None,
+    limit: int = 10,
+    db: Session = Depends(get_db)
+):
     """Search across all stored corporate documents and news in vector database."""
     rag = RagService(db)
-    results = rag.search_vector_db(query, limit=limit)
+    results = rag.search_vector_db(query, stock_symbol=stock_symbol, limit=limit)
     return results
 
 

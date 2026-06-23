@@ -450,7 +450,7 @@ export default function StockAnalysis() {
                   type="text" 
                   value={query} 
                   onChange={(e) => setQuery(e.target.value)} 
-                  placeholder="Ask about order book, supply chain..." 
+                  placeholder="Ask about GROWW's business model, NETWEB's order book, AEROFLEX's financials..." 
                   className="flex-grow bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] focus:border-blue-600 dark:focus:border-[#00E5FF] rounded-lg px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none transition-colors font-medium" 
                 />
                 <button 

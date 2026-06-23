@@ -38,9 +38,9 @@ interface ChatSession {
 }
 
 const SUGGESTED_QUESTIONS = [
-  { text: "Should I invest in Netweb?", icon: TrendingUp, tag: "Investment Thesis" },
-  { text: "Summarize Aeroflex annual report.", icon: FileText, tag: "PDF Analysis" },
-  { text: "Compare SJS vs Aeroflex.", icon: Briefcase, tag: "Competitor Analysis" },
+  { text: "Should I invest in GROWW?", icon: TrendingUp, tag: "Investment Thesis" },
+  { text: "Summarize AEROFLEX annual report.", icon: FileText, tag: "PDF Analysis" },
+  { text: "Compare SJS vs NETWEB.", icon: Briefcase, tag: "Competitor Analysis" },
   { text: "What are the risks in Knowledge Marine?", icon: AlertCircle, tag: "Risk Evaluation" }
 ];
 
@@ -688,7 +688,7 @@ export default function StockChat() {
               type="text" 
               value={input} 
               onChange={(e) => setInput(e.target.value)} 
-              placeholder="Ask Copilot: 'Should I invest in Netweb?' or 'Compare SJS vs Aeroflex'..." 
+              placeholder="Ask Copilot: 'Should I invest in GROWW?' or 'Compare SJS vs AEROFLEX'..." 
               className="flex-grow bg-transparent text-xs text-slate-900 dark:text-white focus:outline-none py-2 px-1 font-semibold placeholder-slate-400 dark:placeholder-slate-500"
               disabled={loading}
             />
@@ -797,7 +797,7 @@ export default function StockChat() {
                 <textarea
                   value={tempSystemPrompt}
                   onChange={(e) => setTempSystemPrompt(e.target.value)}
-                  placeholder="Defaults to: 'You are a premium stock research agent...'"
+                  placeholder="e.g. 'You are a premium stock research assistant for Indian equities. Focus on GROWW, NETWEB, SJS, AEROFLEX.'"
                   className="w-full h-20 bg-slate-50 dark:bg-[#07090F] border border-slate-200 dark:border-[#1E2538] rounded-xl py-2 px-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-600 placeholder-slate-500 font-medium"
                 />
               </div>

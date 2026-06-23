@@ -29,6 +29,20 @@ export default function WatchlistPage() {
   const [newSymbol, setNewSymbol] = useState("");
   const [items, setItems] = useState<TrackedStock[]>([]);
   const [loading, setLoading] = useState(false);
+  const [stocks, setStocks] = useState<Array<{ symbol: string; name: string }>>([]);
+
+  const fetchStocks = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/v1/stocks`);
+      const data = await res.json();
+      setStocks(data);
+      if (data.length > 0 && !newSymbol) {
+        setNewSymbol(data[0].symbol);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchWatchlists = async () => {
     try {
@@ -59,6 +73,7 @@ export default function WatchlistPage() {
 
   useEffect(() => {
     fetchWatchlists();
+    fetchStocks();
   }, []);
 
   useEffect(() => {

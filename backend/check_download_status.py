@@ -26,7 +26,7 @@ def check_status():
     print(f"Database Path: {db_path}")
     print(f"Stocks CSV: {stocks_csv}\n")
 
-    # 2. Get list of stocks
+    # 2. Get list of stocks (using stocks.csv as the source of truth)
     symbols_set = set()
     if os.path.exists(stocks_csv):
         with open(stocks_csv, "r", encoding="utf-8") as f:
@@ -35,29 +35,6 @@ def check_status():
                 sym = row.get("symbol", "").strip().upper()
                 if sym and sym not in ["GROWW", "UNLISTED"]:
                     symbols_set.add(sym)
-                    
-    # Scan documents folder for symbols
-    if os.path.exists(doc_dir):
-        for f in os.listdir(doc_dir):
-            parts = f.split("_")
-            if len(parts) >= 2:
-                sym = parts[0].upper()
-                if sym and sym not in ["GROWW", "UNLISTED"] and not sym.isdigit():
-                    symbols_set.add(sym)
-
-    # Scan database for symbols
-    if os.path.exists(db_path):
-        try:
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
-            cursor.execute("SELECT symbol FROM stocks")
-            for row in cursor.fetchall():
-                sym = row[0].upper()
-                if sym not in ["GROWW", "UNLISTED"]:
-                    symbols_set.add(sym)
-            conn.close()
-        except Exception:
-            pass
 
     symbols = sorted(list(symbols_set))
 

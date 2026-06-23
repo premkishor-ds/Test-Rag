@@ -220,6 +220,27 @@ def get_audit_logs(
 def stock_chat(request: StockChatRequest, db: Session = Depends(get_db)):
     chat_service = StockChatService(db)
     result = chat_service.process_chat(request.message, request.conversationId)
+    
+    # Save audit log entry for the chat query
+    import json
+    try:
+        audit = AuditLog(
+            action="CHAT_QUERY",
+            target_type="chat",
+            target_id=request.conversationId,
+            details=json.dumps({
+                "message": request.message,
+                "answer": result.get("answer", ""),
+                "scores": result.get("scores", None)
+            })
+        )
+        db.add(audit)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        # Suppress logging errors to not block the main response
+        pass
+        
     return StockChatResponse(
         answer=result["answer"],
         sources=result["sources"],

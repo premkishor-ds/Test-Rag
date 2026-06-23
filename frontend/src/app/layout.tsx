@@ -71,6 +71,9 @@ export default function RootLayout({
                 <Link href="/analysis" className="text-sm font-semibold tracking-wide text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-[#00E5FF] transition-all">
                   AI Analysis
                 </Link>
+                <Link href="/chat" className="text-sm font-semibold tracking-wide text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-[#00E5FF] transition-all">
+                  AI Chat
+                </Link>
                 <Link href="/backtest" className="text-sm font-semibold tracking-wide text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-[#00E5FF] transition-all">
                   Backtester
                 </Link>

@@ -8,13 +8,15 @@ from app.schemas.schemas import (
     StockResponse, FinancialMetricResponse, ValuationMetricResponse,
     ScreenerFilterRequest, BacktestRequest, BacktestResponse,
     WatchlistCreate, WatchlistResponse, WatchlistItemCreate, WatchlistItemResponse,
-    RagQueryRequest, RagQueryResponse, AnalysisReportResponse, NewsResponse
+    RagQueryRequest, RagQueryResponse, AnalysisReportResponse, NewsResponse,
+    StockChatRequest, StockChatResponse
 )
 from app.services.rag import RagService
 from app.services.analysis import AnalysisService
 from app.services.screener import ScreenerService
 from app.services.backtest import BacktestEngine
 from app.services.watchlist import WatchlistService
+from app.services.stock_chat import StockChatService
 
 router = APIRouter()
 
@@ -212,3 +214,15 @@ def get_audit_logs(
         }
         for l in logs
     ]
+
+# 11. Conversational Stock Chat
+@router.post("/stock-chat", response_model=StockChatResponse)
+def stock_chat(request: StockChatRequest, db: Session = Depends(get_db)):
+    chat_service = StockChatService(db)
+    result = chat_service.process_chat(request.message, request.conversationId)
+    return StockChatResponse(
+        answer=result["answer"],
+        sources=result["sources"],
+        scores=result["scores"],
+        comparison_table=result["comparison_table"]
+    )

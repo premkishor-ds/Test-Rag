@@ -48,6 +48,14 @@ interface ReportResult {
 interface ChatMessage {
   role: "user" | "assistant";
   text: string;
+  sources?: Array<{
+    score: number;
+    content: string;
+    metadata: {
+      source_file: string;
+      page_number: number;
+    }
+  }>;
 }
 
 export default function StockAnalysis() {
@@ -126,7 +134,7 @@ export default function StockAnalysis() {
         }),
       });
       const data = await res.json();
-      setMessages((prev) => [...prev, { role: "assistant", text: data.answer }]);
+      setMessages((prev) => [...prev, { role: "assistant", text: data.answer, sources: data.source_documents }]);
     } catch (err) {
       setMessages((prev) => [...prev, { role: "assistant", text: "Error fetching answer from vector database." }]);
     } finally {
@@ -407,6 +415,25 @@ export default function StockAnalysis() {
                       {msg.role === 'user' ? 'Client' : 'Local Agent'}
                     </span>
                     <p className="whitespace-pre-wrap font-medium">{msg.text}</p>
+                    
+                    {msg.sources && msg.sources.length > 0 && (
+                      <div className="mt-3 pt-2.5 border-t border-slate-200/60 dark:border-[#1E2538]/60 space-y-1.5">
+                        <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Cited Sources:</span>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {msg.sources.map((src, idx) => (
+                            <div 
+                              key={idx} 
+                              className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200/80 dark:bg-[#0E121E] dark:hover:bg-[#1E2538] text-[9px] font-bold text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#1E2538] flex items-center space-x-1 cursor-default select-none transition-colors"
+                              title={src.content}
+                            >
+                              <span className="truncate max-w-[120px]">{src.metadata.source_file}</span>
+                              <span className="opacity-60">• p.{src.metadata.page_number}</span>
+                              <span className="text-blue-500 dark:text-[#00E5FF] opacity-90">({Math.round(src.score * 100)}%)</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
                 {chatLoading && (

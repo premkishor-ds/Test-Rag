@@ -142,20 +142,58 @@ class DocumentExtractor:
 
     @staticmethod
     def extract_pdf(file_path: str) -> str:
-        if not pypdf:
-            logger.error("pypdf library not installed. Cannot parse PDF.")
-            return ""
         try:
-            text = []
-            reader = pypdf.PdfReader(file_path)
-            for page in reader.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text.append(page_text)
-            return "\n\n".join(text)
+            import pdfplumber
+            logger.info(f"Extracting PDF text and tables via pdfplumber: {file_path}")
+            pages_text = []
+            with pdfplumber.open(file_path) as pdf:
+                for i, page in enumerate(pdf.pages):
+                    page_text = page.extract_text() or ""
+                    
+                    # Try to extract tables
+                    tables = page.extract_tables()
+                    table_mds = []
+                    if tables:
+                        for table in tables:
+                            rows = []
+                            for row in table:
+                                clean_row = [str(cell or "").strip().replace("\n", " ") for cell in row]
+                                if any(clean_row):
+                                    rows.append(clean_row)
+                            if rows:
+                                col_count = len(rows[0])
+                                md_table = []
+                                md_table.append("| " + " | ".join(rows[0]) + " |")
+                                md_table.append("| " + " | ".join(["---"] * col_count) + " |")
+                                for row in rows[1:]:
+                                    if len(row) < col_count:
+                                        row.extend([""] * (col_count - len(row)))
+                                    else:
+                                        row = row[:col_count]
+                                    md_table.append("| " + " | ".join(row) + " |")
+                                table_mds.append("\n\n" + "\n".join(md_table) + "\n\n")
+                    
+                    combined = page_text
+                    if table_mds:
+                        combined += "\n" + "\n".join(table_mds)
+                    pages_text.append(combined)
+            return "\n\n--- PAGE_SEPARATOR ---\n\n".join(pages_text)
         except Exception as e:
-            logger.error(f"Error reading PDF file {file_path}: {e}")
-            return ""
+            logger.warning(f"pdfplumber extraction failed: {e}. Falling back to pypdf.")
+            if not pypdf:
+                logger.error("pypdf library not installed. Cannot parse PDF.")
+                return ""
+            try:
+                text = []
+                reader = pypdf.PdfReader(file_path)
+                for page in reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text.append(page_text)
+                return "\n\n--- PAGE_SEPARATOR ---\n\n".join(text)
+            except Exception as ex:
+                logger.error(f"Error reading PDF file {file_path} with pypdf: {ex}")
+                return ""
 
     @staticmethod
     def extract_docx(file_path: str) -> str:
@@ -422,44 +460,50 @@ class IngestionEngine:
 
         self.db.commit()
 
-        # Chunk document
-        chunks = TextChunker.chunk_text(text, chunk_size=1000, overlap=200)
-        logger.info(f"Split {file_path} into {len(chunks)} chunks.")
+        # Chunk document page-by-page to keep exact page numbers and parent context
+        pages = text.split("\n\n--- PAGE_SEPARATOR ---\n\n")
+        logger.info(f"Split {file_path} into {len(pages)} pages. Preparing chunks...")
 
         # Upload vectors to Qdrant
         points = []
-        for i, chunk_text in enumerate(chunks):
-            chunk_id = f"{stock.symbol}_FY{financial_year}_{quarter or 'AR'}_{version}_{i}"
-            
-            # Generate embedding using Ollama
-            try:
-                vector = ollama_client.generate_embeddings(chunk_text)
-            except Exception as e:
-                logger.error(f"Error vectorizing chunk {i}: {e}")
+        for page_idx, page_content in enumerate(pages, start=1):
+            if not page_content.strip():
                 continue
+            
+            page_chunks = TextChunker.chunk_text(page_content, chunk_size=1000, overlap=200)
+            for chunk_idx, chunk_text in enumerate(page_chunks):
+                chunk_id = f"{stock.symbol}_FY{financial_year}_{quarter or 'AR'}_{version}_p{page_idx}_{chunk_idx}"
+                
+                # Generate embedding using Ollama
+                try:
+                    vector = ollama_client.generate_embeddings(chunk_text)
+                except Exception as e:
+                    logger.error(f"Error vectorizing page {page_idx} chunk {chunk_idx}: {e}")
+                    continue
 
-            # Construct Qdrant payload
-            payload = {
-                "stock_symbol": stock.symbol,
-                "stock_name": stock.name,
-                "source_type": source_type,
-                "source_file": os.path.basename(file_path),
-                "financial_year": financial_year,
-                "quarter": quarter or "FY",
-                "document_date": datetime.date.today().isoformat(),
-                "chunk_id": chunk_id,
-                "page_number": (i // 4) + 1,  # Rough page estimation if raw text
-                "created_at": datetime.datetime.utcnow().isoformat(),
-                "content": chunk_text
-            }
+                # Construct Qdrant payload with parent context
+                payload = {
+                    "stock_symbol": stock.symbol,
+                    "stock_name": stock.name,
+                    "source_type": source_type,
+                    "source_file": os.path.basename(file_path),
+                    "financial_year": financial_year,
+                    "quarter": quarter or "FY",
+                    "document_date": datetime.date.today().isoformat(),
+                    "chunk_id": chunk_id,
+                    "page_number": page_idx,
+                    "parent_context": page_content[:1500], # Keep up to 1500 chars of page-level parent context
+                    "created_at": datetime.datetime.utcnow().isoformat(),
+                    "content": chunk_text
+                }
 
-            points.append(
-                qmodels.PointStruct(
-                    id=hashlib.md5(chunk_id.encode()).hexdigest()[:32],  # Convert to a 32-char hex UUID format
-                    vector=vector,
-                    payload=payload
+                points.append(
+                    qmodels.PointStruct(
+                        id=hashlib.md5(chunk_id.encode()).hexdigest()[:32],
+                        vector=vector,
+                        payload=payload
+                    )
                 )
-            )
 
         if points and qdrant_client:
             try:
@@ -467,7 +511,7 @@ class IngestionEngine:
                     collection_name=settings.QDRANT_COLLECTION_NAME,
                     points=points
                 )
-                logger.info(f"Successfully upserted {len(points)} chunks into Qdrant collection '{settings.QDRANT_COLLECTION_NAME}'")
+                logger.info(f"Successfully upserted {len(points)} page-aware chunks into Qdrant collection '{settings.QDRANT_COLLECTION_NAME}'")
             except Exception as e:
                 logger.error(f"Failed to upsert points to Qdrant: {e}")
                 return False

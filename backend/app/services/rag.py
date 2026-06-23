@@ -107,6 +107,44 @@ class RagService:
             "rsi": technical.rsi if technical else None,
             "trend_strength": technical.trend_strength if technical else None,
         }
+    def rerank_documents(self, query: str, docs: List[Dict[str, Any]], top_k: int = 3) -> List[Dict[str, Any]]:
+        if not docs:
+            return []
+        
+        prompt_parts = [
+            "You are an AI Reranking Assistant. You will evaluate the relevance of multiple retrieved chunks to a user question.\n",
+            f"User Question: \"{query}\"\n\n",
+            "Here are the retrieved chunks:"
+        ]
+        
+        for idx, doc in enumerate(docs):
+            content_snippet = doc["content"][:400].replace("\n", " ")
+            prompt_parts.append(f"Chunk ID {idx}: {content_snippet} (from {doc['metadata'].get('source_file')})")
+            
+        prompt_parts.append(
+            f"\nEvaluate which chunks contain direct, highly relevant answers or key financial metrics to solve the user's question.\n"
+            f"Select the top {top_k} chunk IDs as a comma-separated list of integers in order of relevance (e.g. '2, 0, 1').\n"
+            "Return ONLY the comma-separated integers. Do not write any other explanation or words."
+        )
+        
+        prompt = "\n".join(prompt_parts)
+        try:
+            response = ollama_client.generate_completion(prompt).strip()
+            import re
+            ids = [int(i) for i in re.findall(r'\d+', response)]
+            selected_ids = []
+            for i in ids:
+                if 0 <= i < len(docs) and i not in selected_ids:
+                    selected_ids.append(i)
+            
+            if selected_ids:
+                reranked = [docs[i] for i in selected_ids[:top_k]]
+                logger.info(f"LLM Reranked chunks: selected indices {selected_ids[:top_k]} from {len(docs)} retrieved.")
+                return reranked
+        except Exception as e:
+            logger.error(f"Error during LLM reranking: {e}")
+            
+        return docs[:top_k]
 
     def determine_query_type(self, query: str) -> str:
         # Ask LLM or use simple heuristics to route the query
@@ -163,9 +201,10 @@ class RagService:
                     f"- P/E Ratio: {data['pe_ratio']}\n"
                 )
 
-        # Fetch unstructured data if needed
+        # Fetch unstructured data if needed - retrieve 10 and rerank to top 3
         if query_type in ["UNSTRUCTURED", "HYBRID"]:
-            vector_docs = self.search_vector_db(query, stock_symbol=stock_symbol, limit=6)
+            raw_docs = self.search_vector_db(query, stock_symbol=stock_symbol, limit=10)
+            vector_docs = self.rerank_documents(query, raw_docs, top_k=3)
 
         # Assemble prompt context
         context_parts = []

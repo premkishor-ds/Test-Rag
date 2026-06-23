@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     DATA_DIR: str = os.getenv("DATA_DIR", "./data")
     STOCKS_CSV: str = os.getenv("STOCKS_CSV", "./data/stocks.csv")
 
+    def model_post_init(self, __context):
+        backend_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        if not os.path.isabs(self.DATA_DIR):
+            self.DATA_DIR = os.path.abspath(os.path.join(backend_root, self.DATA_DIR))
+        if not os.path.isabs(self.STOCKS_CSV):
+            self.STOCKS_CSV = os.path.abspath(os.path.join(backend_root, self.STOCKS_CSV))
+
     model_config = SettingsConfigDict(case_sensitive=True, env_file=".env")
 
 settings = Settings()

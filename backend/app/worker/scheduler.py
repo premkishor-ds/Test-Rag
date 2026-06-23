@@ -138,26 +138,23 @@ class MonthlyScheduler:
                     except ValueError:
                         continue
 
-                    quarter = None
-                    dtype = "annual_report"
+                    # Robust filename parsing
+                    remaining = "_".join(parts[2:]).lower()
                     
-                    if len(parts) >= 4:
-                        quarter = parts[2].upper()
-                        dtype_part = parts[3].lower()
-                        if "concall" in dtype_part:
-                            dtype = "concall"
-                        elif "presentation" in dtype_part or "ppt" in dtype_part:
-                            dtype = "presentation"
-                        elif "result" in dtype_part:
-                            dtype = "quarterly_result"
-                    elif len(parts) == 3:
-                        dtype_part = parts[2].lower()
-                        if "concall" in dtype_part:
-                            dtype = "concall"
-                        elif "presentation" in dtype_part or "ppt" in dtype_part:
-                            dtype = "presentation"
-                        elif "result" in dtype_part:
-                            dtype = "quarterly_result"
+                    quarter = None
+                    # Search for Q1, Q2, Q3, Q4
+                    import re
+                    q_match = re.search(r'\bq[1-4]\b', remaining)
+                    if q_match:
+                        quarter = q_match.group(0).upper()
+                    
+                    dtype = "annual_report"
+                    if "concall" in remaining or "transcript" in remaining:
+                        dtype = "concall"
+                    elif "presentation" in remaining or "ppt" in remaining:
+                        dtype = "presentation"
+                    elif "result" in remaining or "quarterly" in remaining:
+                        dtype = "quarterly_result"
 
                     # Check if already ingested using CorporateDocument
                     exists = db.query(CorporateDocument).filter(

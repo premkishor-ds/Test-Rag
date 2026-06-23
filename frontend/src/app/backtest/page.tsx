@@ -29,7 +29,7 @@ export default function Backtester() {
   const handleRunBacktest = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/api/v1/backtest", {
+      const res = await fetch("process.env.NEXT_PUBLIC_API_URL/api/v1/backtest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

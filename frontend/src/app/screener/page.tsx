@@ -75,7 +75,7 @@ export default function StockScreener() {
         }
       });
 
-      const res = await fetch("http://localhost:8000/api/v1/screener", {
+      const res = await fetch("process.env.NEXT_PUBLIC_API_URL/api/v1/screener", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -92,7 +92,7 @@ export default function StockScreener() {
   const handleSaveFilter = async () => {
     if (!savedName) return alert("Please enter a name for the filter");
     try {
-      const res = await fetch("http://localhost:8000/api/v1/watchlist", { // Or save filter endpoint
+      const res = await fetch("process.env.NEXT_PUBLIC_API_URL/api/v1/watchlist", { // Or save filter endpoint
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: savedName }),

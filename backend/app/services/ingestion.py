@@ -5,6 +5,7 @@ import json
 import hashlib
 import datetime
 import logging
+import urllib.parse
 from urllib.parse import urlparse, parse_qs
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
@@ -39,6 +40,9 @@ from app.core.qdrant import qdrant_client
 from app.models.models import Stock, AnnualReport, CorporateDocument, AuditLog
 
 import requests
+
+# FIX: logger must be defined BEFORE any function that uses it
+logger = logging.getLogger(__name__)
 
 def fetch_stock_data_from_yahoo(symbol: str) -> dict:
     yf_symbol = symbol.upper()
@@ -119,8 +123,6 @@ def fetch_stock_data_from_yahoo(symbol: str) -> dict:
     except Exception as e:
         logger.error(f"Error fetching data from Yahoo Finance for {symbol}: {e}")
         return {}
-
-logger = logging.getLogger(__name__)
 
 class DocumentExtractor:
     @staticmethod
@@ -472,107 +474,238 @@ class IngestionEngine:
         self.db.commit()
         return True
 
+def _try_bse_nse_direct_download(symbol: str, financial_year: int) -> List[str]:
+    """
+    Attempt to find PDF links from BSE India's known filing pages and
+    company investor-relations patterns before falling back to web scraping.
+    Returns a list of candidate PDF URLs to try.
+    """
+    candidate_urls = []
+    # BSE annual report pattern (some companies)
+    bse_url = (
+        f"https://www.bseindia.com/bseplus/AnnualReport/"
+        f"{symbol}/{financial_year}/AnnualReport.pdf"
+    )
+    candidate_urls.append(bse_url)
+    # Common company IR page PDF patterns
+    common_patterns = [
+        f"https://www.{symbol.lower()}.com/investor-relations/annual-report-{financial_year}.pdf",
+        f"https://www.{symbol.lower()}.in/annual-report-{financial_year}.pdf",
+    ]
+    candidate_urls.extend(common_patterns)
+    return candidate_urls
+
+
 def search_internet_for_pdf_links(query: str) -> List[str]:
+    """
+    Search DuckDuckGo (primary) and Yahoo Search (fallback) for PDF links.
+    Returns a deduplicated list of candidate PDF URLs.
+    """
     pdf_urls = []
-    
-    # 1. Try DuckDuckGo first
-    ddg_url = f"https://html.duckduckgo.com/html/?q={query}"
+
+    # FIX: URL-encode the query so spaces and special chars are handled correctly
+    encoded_query = urllib.parse.quote_plus(query)
+
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5"
+        "Accept-Language": "en-US,en;q=0.5",
+        "DNT": "1",
     }
-    
+
+    # 1. Try DuckDuckGo HTML
+    ddg_url = f"https://html.duckduckgo.com/html/?q={encoded_query}"
     try:
-        response = requests.get(ddg_url, headers=headers, timeout=12)
-        if response.status_code == 200:
+        response = requests.get(ddg_url, headers=headers, timeout=15)
+        if response.status_code == 200 and BeautifulSoup:
             soup = BeautifulSoup(response.text, "html.parser")
-            anchors = soup.find_all("a", class_="result__url")
-            for a in anchors:
-                href = a.get("href", "")
-                if "uddg=" in href:
-                    parsed = urlparse(href)
-                    uddg_list = parse_qs(parsed.query).get("uddg")
-                    if uddg_list:
-                        extracted_url = uddg_list[0]
-                        if extracted_url.lower().endswith(".pdf") or ".pdf?" in extracted_url.lower():
-                            pdf_urls.append(extracted_url)
+
+            # FIX: DDG changed its HTML in 2024 — use result__a (actual link anchor)
+            # and also check result__url (legacy, kept for compatibility)
+            for css_class in ["result__a", "result__url"]:
+                anchors = soup.find_all("a", class_=css_class)
+                for a in anchors:
+                    href = a.get("href", "")
+                    # DDG wraps links in a redirect: /l/?uddg=<encoded_url>
+                    if "uddg=" in href:
+                        parsed = urlparse(href)
+                        uddg_list = parse_qs(parsed.query).get("uddg")
+                        if uddg_list:
+                            href = urllib.parse.unquote(uddg_list[0])
+                    if href and (".pdf" in href.lower()):
+                        pdf_urls.append(href)
+
+            logger.info(f"DuckDuckGo returned {len(pdf_urls)} PDF candidate(s) for: {query}")
+        else:
+            logger.warning(f"DuckDuckGo returned status {response.status_code}")
     except Exception as e:
         logger.warning(f"DuckDuckGo search failed or timed out: {e}")
-        
+
     if pdf_urls:
-        return pdf_urls
-        
+        # Deduplicate while preserving order
+        seen = set()
+        deduped = [u for u in pdf_urls if not (u in seen or seen.add(u))]
+        return deduped
+
     # 2. Fallback to Yahoo Search
-    logger.info("DuckDuckGo returned no links or was rate-limited. Falling back to Yahoo Search...")
-    yahoo_url = f"https://search.yahoo.com/search?p={query}"
+    logger.info("DuckDuckGo returned no PDF links. Falling back to Yahoo Search...")
+    yahoo_url = f"https://search.yahoo.com/search?p={encoded_query}"
     try:
-        response = requests.get(yahoo_url, headers=headers, timeout=12)
-        if response.status_code == 200:
+        response = requests.get(yahoo_url, headers=headers, timeout=15)
+        if response.status_code == 200 and BeautifulSoup:
             soup = BeautifulSoup(response.text, "html.parser")
             for a in soup.find_all("a"):
                 href = a.get("href", "")
                 if ".pdf" in href.lower():
+                    # Yahoo wraps URLs: RU=<encoded_url>/RK=...
                     if "RU=" in href:
                         match = re.search(r"RU=([^/]+)", href)
                         if match:
-                            import urllib.parse
                             decoded = urllib.parse.unquote(match.group(1))
-                            if decoded.lower().endswith(".pdf") or ".pdf?" in decoded.lower():
+                            if ".pdf" in decoded.lower():
                                 pdf_urls.append(decoded)
-                    else:
-                        if href.lower().endswith(".pdf") or ".pdf?" in href.lower():
-                            pdf_urls.append(href)
+                    elif href.lower().startswith("http") and ".pdf" in href.lower():
+                        pdf_urls.append(href)
+            logger.info(f"Yahoo Search returned {len(pdf_urls)} PDF candidate(s)")
+        else:
+            logger.warning(f"Yahoo Search returned status {response.status_code}")
     except Exception as e:
         logger.warning(f"Yahoo search failed or timed out: {e}")
-        
-    return pdf_urls
+
+    # Deduplicate
+    seen = set()
+    return [u for u in pdf_urls if not (u in seen or seen.add(u))]
 
 
-def fetch_and_save_pdf(symbol: str, financial_year: int) -> Optional[str]:
-    logger.info(f"Searching internet for {symbol} Annual Report FY{financial_year} PDF...")
-    q = f"{symbol} annual report {financial_year} filetype:pdf"
-    pdf_urls = search_internet_for_pdf_links(q)
-    
-    if not pdf_urls:
-        logger.warning(f"No valid PDF URLs found in search results for {symbol}.")
-        return None
-        
+def _download_pdf_from_urls(pdf_urls: List[str], save_path: str) -> Optional[str]:
+    """
+    Shared PDF download helper.
+    Tries each URL in order, saves the first successful PDF to save_path.
+    Returns the save_path on success, or None on total failure.
+    """
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        )
     }
-    
-    logger.info(f"Found {len(pdf_urls)} potential PDF URLs. Attempting downloads...")
+
     for i, pdf_url in enumerate(pdf_urls):
-        logger.info(f"Attempting download [{i+1}/{len(pdf_urls)}]: {pdf_url}")
+        logger.info(f"Attempting download [{i + 1}/{len(pdf_urls)}]: {pdf_url}")
         try:
-            pdf_response = requests.get(pdf_url, headers=headers, stream=True, timeout=20)
+            pdf_response = requests.get(
+                pdf_url, headers=headers, stream=True, timeout=30, allow_redirects=True
+            )
             pdf_response.raise_for_status()
-            
+
             content_type = pdf_response.headers.get("content-type", "").lower()
-            if "pdf" not in content_type and not pdf_url.lower().endswith(".pdf"):
-                logger.warning(f"URL did not return PDF content type. Skipping: {content_type}")
+            url_has_pdf = ".pdf" in pdf_url.lower()
+
+            # FIX: Accept application/pdf, application/octet-stream, binary/octet-stream
+            # as long as the URL contained .pdf — many BSE/NSE servers use octet-stream
+            is_pdf_content = (
+                "application/pdf" in content_type
+                or "application/octet-stream" in content_type
+                or "binary/octet-stream" in content_type
+                or url_has_pdf
+            )
+
+            if not is_pdf_content:
+                logger.warning(
+                    f"URL did not return PDF-like content-type ({content_type}). Skipping."
+                )
                 continue
-                
-            doc_dir = os.path.join(settings.DATA_DIR, "documents")
-            os.makedirs(doc_dir, exist_ok=True)
-            
-            file_name = f"{symbol.upper()}_{financial_year}_AnnualReport.pdf"
-            file_path = os.path.join(doc_dir, file_name)
-            
-            with open(file_path, "wb") as f:
+
+            # Read response and validate it starts with %PDF magic bytes
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            tmp_path = save_path + ".tmp"
+            total_bytes = 0
+            with open(tmp_path, "wb") as f:
                 for chunk in pdf_response.iter_content(chunk_size=8192):
                     if chunk:
                         f.write(chunk)
-                        
-            logger.info(f"Successfully downloaded and saved annual report to {file_path}")
-            return file_path
+                        total_bytes += len(chunk)
+
+            if total_bytes < 1024:
+                logger.warning(f"Downloaded file is too small ({total_bytes} bytes). Likely not a real PDF.")
+                os.remove(tmp_path)
+                continue
+
+            # Validate PDF magic bytes (%PDF)
+            with open(tmp_path, "rb") as f:
+                magic = f.read(4)
+            if magic != b"%PDF":
+                logger.warning(f"File does not start with %PDF magic bytes. Not a valid PDF. Skipping.")
+                os.remove(tmp_path)
+                continue
+
+            # Rename temp file to final path
+            if os.path.exists(save_path):
+                os.remove(save_path)
+            os.rename(tmp_path, save_path)
+            logger.info(f"Successfully downloaded PDF ({total_bytes / 1024:.1f} KB) → {save_path}")
+            return save_path
+
         except Exception as download_err:
-            logger.warning(f"Failed downloading from {pdf_url}: {download_err}. Trying next link...")
+            logger.warning(f"Failed downloading from {pdf_url}: {download_err}. Trying next...")
+            # Cleanup any partial temp file
+            tmp_path = save_path + ".tmp"
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
             continue
-            
-    logger.error(f"All download attempts failed for stock {symbol}.")
+
     return None
+
+
+def fetch_and_save_pdf(symbol: str, financial_year: int) -> Optional[str]:
+    """
+    Download the annual report PDF for a stock symbol and financial year.
+    Strategy order:
+      1. Try BSE/NSE direct known URL patterns
+      2. Search DuckDuckGo for filetype:pdf links
+      3. Fallback to Yahoo Search
+    """
+    logger.info(f"Fetching Annual Report PDF for {symbol} FY{financial_year}...")
+
+    doc_dir = os.path.join(settings.DATA_DIR, "documents")
+    os.makedirs(doc_dir, exist_ok=True)
+    file_name = f"{symbol.upper()}_{financial_year}_AnnualReport.pdf"
+    save_path = os.path.join(doc_dir, file_name)
+
+    # Strategy 1: BSE/NSE direct known URLs
+    direct_urls = _try_bse_nse_direct_download(symbol, financial_year)
+    result = _download_pdf_from_urls(direct_urls, save_path)
+    if result:
+        return result
+
+    # Strategy 2 & 3: Web search
+    search_queries = [
+        f"{symbol} annual report {financial_year} filetype:pdf site:bseindia.com OR site:nseindia.com OR site:moneycontrol.com",
+        f"{symbol} annual report {financial_year} filetype:pdf",
+        f"{symbol} annual report FY{financial_year} PDF download",
+    ]
+    all_urls: List[str] = []
+    for q in search_queries:
+        logger.info(f"Searching: {q}")
+        found = search_internet_for_pdf_links(q)
+        all_urls.extend(found)
+        if all_urls:
+            break  # Stop after first successful search result set
+
+    if not all_urls:
+        logger.warning(f"No PDF links found for {symbol} FY{financial_year} via any search strategy.")
+        return None
+
+    logger.info(f"Found {len(all_urls)} total PDF candidate(s). Starting download attempts...")
+    result = _download_pdf_from_urls(all_urls, save_path)
+    if not result:
+        logger.error(f"All download attempts failed for {symbol} FY{financial_year}.")
+    return result
 
 
 def fetch_corporate_document(
@@ -581,76 +714,59 @@ def fetch_corporate_document(
     financial_year: int,
     quarter: Optional[str] = None
 ) -> Optional[str]:
+    """
+    Download a specific corporate document (quarterly result, concall, presentation)
+    for a stock. Uses multiple search query variations and the shared download helper.
+    """
     q_str = f" {quarter}" if quarter else ""
-    logger.info(f"Searching internet for {symbol} {document_type}{q_str} FY{financial_year} PDF...")
-    
-    # Construct list of query variations based on document type
-    queries = []
+    logger.info(f"Fetching {document_type}{q_str} FY{financial_year} for {symbol}...")
+
+    doc_dir = os.path.join(settings.DATA_DIR, "documents")
+    os.makedirs(doc_dir, exist_ok=True)
+    q_suffix = f"_{quarter}" if quarter else ""
+    file_name = f"{symbol.upper()}_{financial_year}{q_suffix}_{document_type}.pdf"
+    save_path = os.path.join(doc_dir, file_name)
+
+    # Build query variations based on document type
     if document_type == "quarterly_result":
         queries = [
+            f"{symbol} quarterly results{q_str} {financial_year} filetype:pdf site:bseindia.com",
             f"{symbol} quarterly financial results{q_str} {financial_year} filetype:pdf",
             f"{symbol} results{q_str} {financial_year} filetype:pdf",
-            f"{symbol} financial statements{q_str} {financial_year} filetype:pdf"
+            f"{symbol} financial statements{q_str} {financial_year} PDF",
         ]
     elif document_type == "concall":
         queries = [
             f"{symbol} concall transcript{q_str} {financial_year} filetype:pdf",
             f"{symbol} earnings call transcript{q_str} {financial_year} filetype:pdf",
-            f"{symbol} transcript{q_str} {financial_year} filetype:pdf"
+            f"{symbol} investor call{q_str} {financial_year} transcript PDF",
         ]
     elif document_type == "presentation":
         queries = [
             f"{symbol} investor presentation{q_str} {financial_year} filetype:pdf",
             f"{symbol} analyst presentation{q_str} {financial_year} filetype:pdf",
-            f"{symbol} presentation{q_str} {financial_year} filetype:pdf"
+            f"{symbol} earnings presentation{q_str} {financial_year} PDF",
         ]
     else:
-        queries = [f"{symbol} annual report {financial_year} filetype:pdf"]
-        
-    pdf_urls = []
+        queries = [
+            f"{symbol} annual report {financial_year} filetype:pdf",
+        ]
+
+    # Collect PDF URLs from the first search query that yields results
+    all_urls: List[str] = []
     for q in queries:
-        logger.info(f"Trying search query: {q}")
-        pdf_urls = search_internet_for_pdf_links(q)
-        if pdf_urls:
+        logger.info(f"Searching: {q}")
+        found = search_internet_for_pdf_links(q)
+        all_urls.extend(found)
+        if all_urls:
             break
-            
-    if not pdf_urls:
-        logger.warning(f"No valid PDF URLs found in search results for {symbol} {document_type}{q_str}.")
+
+    if not all_urls:
+        logger.warning(f"No PDF links found for {symbol} {document_type}{q_str} FY{financial_year}.")
         return None
-        
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-    
-    logger.info(f"Found {len(pdf_urls)} potential PDF URLs. Attempting downloads...")
-    for i, pdf_url in enumerate(pdf_urls):
-        logger.info(f"Attempting download [{i+1}/{len(pdf_urls)}]: {pdf_url}")
-        try:
-            pdf_response = requests.get(pdf_url, headers=headers, stream=True, timeout=20)
-            pdf_response.raise_for_status()
-            
-            content_type = pdf_response.headers.get("content-type", "").lower()
-            if "pdf" not in content_type and not pdf_url.lower().endswith(".pdf"):
-                logger.warning(f"URL did not return PDF content type. Skipping: {content_type}")
-                continue
-                
-            doc_dir = os.path.join(settings.DATA_DIR, "documents")
-            os.makedirs(doc_dir, exist_ok=True)
-            
-            q_suffix = f"_{quarter}" if quarter else ""
-            file_name = f"{symbol.upper()}_{financial_year}{q_suffix}_{document_type}.pdf"
-            file_path = os.path.join(doc_dir, file_name)
-            
-            with open(file_path, "wb") as f:
-                for chunk in pdf_response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        
-            logger.info(f"Successfully downloaded and saved {document_type} to {file_path}")
-            return file_path
-        except Exception as download_err:
-            logger.warning(f"Failed downloading from {pdf_url}: {download_err}. Trying next link...")
-            continue
-            
-    logger.error(f"All download attempts failed for {symbol} {document_type}{q_str}.")
-    return None
+
+    logger.info(f"Found {len(all_urls)} PDF candidate(s). Starting downloads...")
+    result = _download_pdf_from_urls(all_urls, save_path)
+    if not result:
+        logger.error(f"All download attempts failed for {symbol} {document_type}{q_str} FY{financial_year}.")
+    return result

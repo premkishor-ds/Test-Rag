@@ -30,11 +30,11 @@ export default function Dashboard() {
     // Fetch stats and health from local backend (defaulting to localhost:8000)
     const fetchData = async () => {
       try {
-        const stocksRes = await fetch("http://localhost:8000/api/v1/stocks");
+        const stocksRes = await fetch("process.env.NEXT_PUBLIC_API_URL/api/v1/stocks");
         const stocksData = await stocksRes.json();
         setStocks(stocksData);
 
-        const healthRes = await fetch("http://localhost:8000/health");
+        const healthRes = await fetch("process.env.NEXT_PUBLIC_API_URL/health");
         const healthData = await healthRes.json();
         setHealth(healthData);
       } catch (err) {

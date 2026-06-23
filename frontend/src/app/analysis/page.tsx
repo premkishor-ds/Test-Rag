@@ -63,7 +63,7 @@ export default function StockAnalysis() {
   useEffect(() => {
     const fetchStocks = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/v1/stocks");
+        const res = await fetch("process.env.NEXT_PUBLIC_API_URL/api/v1/stocks");
         const data = await res.json();
         setStocks(data);
         if (data.length > 0) setSelectedSymbol(data[0].symbol);
@@ -78,7 +78,7 @@ export default function StockAnalysis() {
     if (!selectedSymbol) return;
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/api/v1/analyze", {
+      const res = await fetch("process.env.NEXT_PUBLIC_API_URL/api/v1/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stock_symbol: selectedSymbol }),
@@ -107,7 +107,7 @@ export default function StockAnalysis() {
     setChatLoading(true);
 
     try {
-      const res = await fetch("http://localhost:8000/api/v1/rag-query", {
+      const res = await fetch("process.env.NEXT_PUBLIC_API_URL/api/v1/rag-query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -11,24 +11,29 @@ logger = logging.getLogger(__name__)
 
 class MonthlyScheduler:
     def __init__(self):
-        self.db = SessionLocal()
-        self.ingestion_engine = IngestionEngine(self.db)
+        # No long-lived DB session — a fresh session is created per scan_and_update() run
+        # to avoid "session already closed" crashes on repeated scheduler cycles.
+        pass
 
     def scan_and_update(self):
         logger.info("Starting monthly update system process...")
+        # FIX: Create a fresh DB session each run — the old session is closed in finally:
+        # so reusing self.db on repeated runs would raise an error.
+        db = SessionLocal()
+        ingestion_engine = IngestionEngine(db)
         try:
             # 1. Sync stocks database from stocks.csv
-            stocks = self.ingestion_engine.sync_stocks_from_csv()
+            stocks = ingestion_engine.sync_stocks_from_csv()
             logger.info(f"Synced {len(stocks)} stocks from CSV.")
 
             # Auto-download missing reports from internet (current year + last 2 years)
             from app.models.models import AnnualReport, CorporateDocument
             current_year = datetime.datetime.now().year
             target_years = [current_year - 2, current_year - 1, current_year]
-            
+
             for s in stocks:
                 for fy in target_years:
-                    existing_report = self.db.query(CorporateDocument).filter(
+                    existing_report = db.query(CorporateDocument).filter(
                         CorporateDocument.stock_symbol == s.symbol,
                         CorporateDocument.document_type == "annual_report",
                         CorporateDocument.financial_year == fy
@@ -37,7 +42,7 @@ class MonthlyScheduler:
                         logger.info(f"No annual report found for {s.symbol} (FY{fy}) in database. Attempting auto-download...")
                         downloaded_path = fetch_and_save_pdf(s.symbol, fy)
                         if downloaded_path:
-                            self.ingestion_engine.ingest_document(
+                            ingestion_engine.ingest_document(
                                 file_path=downloaded_path,
                                 stock_symbol=s.symbol,
                                 source_type="annual_report",
@@ -74,7 +79,7 @@ class MonthlyScheduler:
                     fy = q_info["year"]
                     q_num = q_info["quarter"]
                     for dtype in doc_types:
-                        existing_doc = self.db.query(CorporateDocument).filter(
+                        existing_doc = db.query(CorporateDocument).filter(
                             CorporateDocument.stock_symbol == s.symbol,
                             CorporateDocument.document_type == dtype,
                             CorporateDocument.financial_year == fy,
@@ -89,7 +94,7 @@ class MonthlyScheduler:
                                 quarter=q_num
                             )
                             if downloaded_path:
-                                self.ingestion_engine.ingest_document(
+                                ingestion_engine.ingest_document(
                                     file_path=downloaded_path,
                                     stock_symbol=s.symbol,
                                     source_type=dtype,
@@ -115,10 +120,10 @@ class MonthlyScheduler:
                 parts = filename.split("_")
                 if len(parts) >= 2:
                     symbol = parts[0].upper()
-                    
+
                     # Verify if it's a valid stock
                     from app.models.models import Stock, CorporateDocument
-                    stock_exists = self.db.query(Stock).filter(Stock.symbol == symbol).first()
+                    stock_exists = db.query(Stock).filter(Stock.symbol == symbol).first()
                     if not stock_exists:
                         continue
 
@@ -149,7 +154,7 @@ class MonthlyScheduler:
                             dtype = "quarterly_result"
 
                     # Check if already ingested using CorporateDocument
-                    exists = self.db.query(CorporateDocument).filter(
+                    exists = db.query(CorporateDocument).filter(
                         CorporateDocument.stock_symbol == symbol,
                         CorporateDocument.document_type == dtype,
                         CorporateDocument.financial_year == fy,
@@ -159,7 +164,7 @@ class MonthlyScheduler:
 
                     if not exists:
                         logger.info(f"New document detected: {filename}. Processing...")
-                        success = self.ingestion_engine.ingest_document(
+                        success = ingestion_engine.ingest_document(
                             file_path=file_path,
                             stock_symbol=symbol,
                             source_type=dtype,
@@ -174,17 +179,18 @@ class MonthlyScheduler:
                         logger.info(f"File {filename} has already been ingested. Skipping.")
 
             # 3. Update or generate mock financial data metrics for backtesting/screener if missing
-            self._ensure_stock_metrics()
+            self._ensure_stock_metrics(db)
 
         except Exception as e:
             logger.error(f"Error during monthly update: {e}")
         finally:
-            self.db.close()
+            db.close()
 
-    def _ensure_stock_metrics(self):
+    def _ensure_stock_metrics(self, db):
+        """Populate missing financial/valuation/technical metrics for all stocks."""
         import random
         from app.models.models import Stock, FinancialMetric, ValuationMetric, TechnicalIndicator
-        stocks = self.db.query(Stock).all()
+        stocks = db.query(Stock).all()
         for s in stocks:
             # Try fetching real data from Yahoo Finance
             yf = fetch_stock_data_from_yahoo(s.symbol)
@@ -194,7 +200,7 @@ class MonthlyScheduler:
             random.seed(hash(s.symbol))
 
             # Financial metrics
-            fm = self.db.query(FinancialMetric).filter(FinancialMetric.stock_symbol == s.symbol).first()
+            fm = db.query(FinancialMetric).filter(FinancialMetric.stock_symbol == s.symbol).first()
             if not fm:
                 if has_yf:
                     fm = FinancialMetric(
@@ -234,10 +240,10 @@ class MonthlyScheduler:
                         dii_holding=round(random.uniform(1.0, 26.0), 2),
                         order_book=round(rev * random.uniform(0.1, 2.8), 2)
                     )
-                self.db.add(fm)
+                db.add(fm)
 
             # Valuation metrics
-            vm = self.db.query(ValuationMetric).filter(ValuationMetric.stock_symbol == s.symbol).first()
+            vm = db.query(ValuationMetric).filter(ValuationMetric.stock_symbol == s.symbol).first()
             if not vm:
                 if has_yf and yf.get("pe_ratio") is not None:
                     vm = ValuationMetric(
@@ -258,10 +264,10 @@ class MonthlyScheduler:
                         fifty_two_week_high=round(base_val * random.uniform(1.1, 1.55), 2),
                         fifty_two_week_low=round(base_val * random.uniform(0.6, 0.95), 2)
                     )
-                self.db.add(vm)
+                db.add(vm)
 
             # Technical indicators
-            ti = self.db.query(TechnicalIndicator).filter(TechnicalIndicator.stock_symbol == s.symbol).first()
+            ti = db.query(TechnicalIndicator).filter(TechnicalIndicator.stock_symbol == s.symbol).first()
             if not ti:
                 base_val = yf["current_price"] if (has_yf and yf.get("current_price")) else (s.market_cap / 10.0 if s.market_cap else random.uniform(100.0, 2000.0))
                 ti = TechnicalIndicator(
@@ -274,8 +280,8 @@ class MonthlyScheduler:
                     relative_strength=round(random.uniform(0.6, 2.2), 2),
                     trend_strength=random.choice(["Bullish", "Bearish", "Neutral"])
                 )
-                self.db.add(ti)
-        self.db.commit()
+                db.add(ti)
+        db.commit()
 
 def run_scheduler_loop():
     scheduler = MonthlyScheduler()

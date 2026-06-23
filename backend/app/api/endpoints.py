@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 
 from app.core.database import get_db
-from app.models.models import Stock, FinancialMetric, ValuationMetric, News, AnalysisReport
+from app.models.models import Stock, FinancialMetric, ValuationMetric, News, AnalysisReport, AuditLog, SavedFilter
 from app.schemas.schemas import (
     StockResponse, FinancialMetricResponse, ValuationMetricResponse,
     ScreenerFilterRequest, BacktestRequest, BacktestResponse,
@@ -143,3 +143,72 @@ def remove_stock_from_watchlist(watchlist_id: int, symbol: str, db: Session = De
 def track_watchlist(watchlist_id: int, db: Session = Depends(get_db)):
     watchlist_service = WatchlistService(db)
     return watchlist_service.track_watchlist_changes(user_id=1, watchlist_id=watchlist_id)
+
+
+# 9. Saved Screener Filters
+@router.post("/screener/save")
+def save_screener_filter(
+    name: str,
+    filters: ScreenerFilterRequest,
+    db: Session = Depends(get_db)
+):
+    """Save a screener filter configuration under a given name."""
+    screener_service = ScreenerService(db)
+    saved = screener_service.save_filter(user_id=1, name=name, filters=filters)
+    return {
+        "id": saved.id,
+        "name": saved.name,
+        "created_at": saved.created_at,
+        "filter": filters.model_dump()
+    }
+
+@router.get("/screener/saved")
+def get_saved_screener_filters(db: Session = Depends(get_db)):
+    """Retrieve all saved screener filter configurations."""
+    screener_service = ScreenerService(db)
+    saved_list = screener_service.get_saved_filters(user_id=1)
+    import json
+    return [
+        {
+            "id": s.id,
+            "name": s.name,
+            "created_at": s.created_at,
+            "filter": json.loads(s.filter_json)
+        }
+        for s in saved_list
+    ]
+
+@router.delete("/screener/saved/{filter_id}")
+def delete_saved_screener_filter(filter_id: int, db: Session = Depends(get_db)):
+    """Delete a saved screener filter by ID."""
+    saved = db.query(SavedFilter).filter(SavedFilter.id == filter_id).first()
+    if not saved:
+        raise HTTPException(status_code=404, detail="Saved filter not found")
+    db.delete(saved)
+    db.commit()
+    return {"message": "Saved filter deleted successfully"}
+
+
+# 10. Audit Logs
+@router.get("/audit-logs")
+def get_audit_logs(
+    limit: int = 50,
+    action: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Retrieve the system audit trail. Optionally filter by action type."""
+    query = db.query(AuditLog).order_by(AuditLog.timestamp.desc())
+    if action:
+        query = query.filter(AuditLog.action == action.upper())
+    logs = query.limit(limit).all()
+    return [
+        {
+            "id": l.id,
+            "action": l.action,
+            "target_type": l.target_type,
+            "target_id": l.target_id,
+            "details": l.details,
+            "timestamp": l.timestamp,
+        }
+        for l in logs
+    ]

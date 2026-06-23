@@ -52,7 +52,15 @@ class OllamaClient:
         }
         try:
             response = requests.post(url, json=payload, headers=headers, stream=True, timeout=90)
-            response.raise_for_status()
+            
+            # If the remote server returns an error (e.g. 500 JSONDecodeError on their proxy),
+            # gracefully fall back to non-streaming mode.
+            if response.status_code != 200:
+                logger.warning(f"Ollama stream returned status {response.status_code}. Falling back to non-stream mode.")
+                fallback_text = self.generate_completion(prompt, system_prompt, temperature, model)
+                yield fallback_text
+                return
+                
             import json
             for line in response.iter_lines():
                 if line:
@@ -61,8 +69,12 @@ class OllamaClient:
                     if text:
                         yield text
         except Exception as e:
-            logger.error(f"Error calling Ollama LLM stream: {e}")
-            yield f"\n[Stream Error: {e}]"
+            logger.error(f"Error calling Ollama LLM stream: {e}. Falling back to non-stream.")
+            try:
+                fallback_text = self.generate_completion(prompt, system_prompt, temperature, model)
+                yield fallback_text
+            except Exception as ex:
+                yield f"\n[Stream Error: {e} | Fallback Error: {ex}]"
 
     def generate_embeddings(self, text: str) -> List[float]:
         url = f"{self.base_url}/api/embed"

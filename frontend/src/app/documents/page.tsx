@@ -43,10 +43,10 @@ const DOC_TYPE_LABELS: Record<string, string> = {
 };
 
 const DOC_TYPE_COLORS: Record<string, string> = {
-  annual_report: "bg-violet-500/10 text-violet-400 border-violet-500/20",
-  quarterly_result: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  concall: "bg-teal-500/10 text-teal-400 border-teal-500/20",
-  presentation: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  annual_report: "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20",
+  quarterly_result: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+  concall: "bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20",
+  presentation: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
 };
 
 export default function DocumentsPage() {
@@ -166,38 +166,38 @@ export default function DocumentsPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="relative rounded-2xl overflow-hidden glass-panel p-8 border border-darkBorder">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl -z-10" />
+      <div className="relative rounded-2xl overflow-hidden bg-white border border-slate-200 dark:bg-[#0E121E]/60 dark:border-[#1E2538] p-8 shadow-sm dark:shadow-2xl transition-colors duration-200">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-violet-500/5 rounded-full blur-3xl -z-10" />
         <div className="flex items-center space-x-4">
           <div className="p-3 bg-violet-500/10 rounded-xl">
-            <FileText className="h-8 w-8 text-violet-400" />
+            <FileText className="h-8 w-8 text-violet-600 dark:text-violet-400" />
           </div>
           <div>
-            <h1 className="text-3xl font-extrabold text-white">Document Management</h1>
-            <p className="text-slate-400 mt-1">
+            <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white">Document Management</h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-1">
               Upload, trigger downloads, and manage RAG knowledge base documents.
             </p>
           </div>
         </div>
         {status && (
           <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 rounded-xl bg-darkBg/50 border border-darkBorder">
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#0B0F19]/50 border border-slate-200 dark:border-[#1E2538]">
               <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">Stocks</p>
-              <p className="text-2xl font-bold text-white mt-1">{status.total_stocks}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{status.total_stocks}</p>
             </div>
-            <div className="p-4 rounded-xl bg-darkBg/50 border border-darkBorder">
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#0B0F19]/50 border border-slate-200 dark:border-[#1E2538]">
               <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">Total Docs</p>
-              <p className="text-2xl font-bold text-white mt-1">{documents.length}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{documents.length}</p>
             </div>
-            <div className="p-4 rounded-xl bg-darkBg/50 border border-darkBorder">
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#0B0F19]/50 border border-slate-200 dark:border-[#1E2538]">
               <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">Files Present</p>
-              <p className="text-2xl font-bold text-emerald-400 mt-1">
+              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
                 {documents.filter((d) => d.file_exists).length}
               </p>
             </div>
-            <div className="p-4 rounded-xl bg-darkBg/50 border border-darkBorder">
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#0B0F19]/50 border border-slate-200 dark:border-[#1E2538]">
               <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">Missing Files</p>
-              <p className="text-2xl font-bold text-red-400 mt-1">
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">
                 {documents.filter((d) => !d.file_exists).length}
               </p>
             </div>
@@ -209,21 +209,21 @@ export default function DocumentsPage() {
         {/* Left: Action Cards */}
         <div className="space-y-6">
           {/* Upload Card */}
-          <div className="glass-panel border border-darkBorder rounded-xl p-6">
-            <h2 className="text-lg font-bold text-white mb-4 flex items-center space-x-2">
-              <Upload className="h-5 w-5 text-cyanAccent" />
+          <div className="bg-white border border-slate-200 dark:bg-[#0E121E]/60 dark:border-[#1E2538] rounded-xl p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-slate-950 dark:text-white mb-4 flex items-center space-x-2">
+              <Upload className="h-5 w-5 text-blue-600 dark:text-[#00E5FF]" />
               <span>Upload Document</span>
             </h2>
             <form onSubmit={handleUpload} className="space-y-3">
               <input
-                className="w-full px-3 py-2 rounded-lg bg-darkBg border border-darkBorder text-slate-200 text-sm placeholder-slate-500 focus:outline-none focus:border-cyanAccent/50"
+                className="w-full px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] text-slate-900 dark:text-slate-200 text-sm placeholder-slate-400 focus:outline-none focus:border-blue-600 dark:focus:border-[#00E5FF]/50"
                 placeholder="Stock Symbol (e.g. TCS)"
                 value={uploadSymbol}
                 onChange={(e) => setUploadSymbol(e.target.value)}
                 required
               />
               <select
-                className="w-full px-3 py-2 rounded-lg bg-darkBg border border-darkBorder text-slate-200 text-sm focus:outline-none focus:border-cyanAccent/50"
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:border-blue-600 dark:focus:border-[#00E5FF]/50"
                 value={uploadType}
                 onChange={(e) => setUploadType(e.target.value)}
               >
@@ -232,14 +232,14 @@ export default function DocumentsPage() {
                 ))}
               </select>
               <select
-                className="w-full px-3 py-2 rounded-lg bg-darkBg border border-darkBorder text-slate-200 text-sm focus:outline-none focus:border-cyanAccent/50"
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:border-blue-600 dark:focus:border-[#00E5FF]/50"
                 value={uploadYear}
                 onChange={(e) => setUploadYear(Number(e.target.value))}
               >
                 {years.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
               <input
-                className="w-full px-3 py-2 rounded-lg bg-darkBg border border-darkBorder text-slate-200 text-sm placeholder-slate-500 focus:outline-none focus:border-cyanAccent/50"
+                className="w-full px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] text-slate-900 dark:text-slate-200 text-sm placeholder-slate-400 focus:outline-none focus:border-blue-600 dark:focus:border-[#00E5FF]/50"
                 placeholder="Quarter (e.g. Q1) — optional"
                 value={uploadQuarter}
                 onChange={(e) => setUploadQuarter(e.target.value)}
@@ -248,20 +248,20 @@ export default function DocumentsPage() {
                 ref={fileInputRef}
                 type="file"
                 accept=".pdf,.txt,.docx,.html"
-                className="w-full text-sm text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-cyanAccent/10 file:text-cyanAccent file:text-xs file:font-semibold hover:file:bg-cyanAccent/20 cursor-pointer"
+                className="w-full text-sm text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-blue-600/10 dark:file:bg-[#00E5FF]/10 file:text-blue-600 dark:file:text-[#00E5FF] file:text-xs file:font-semibold hover:file:bg-blue-600/20 dark:hover:file:bg-[#00E5FF]/20 cursor-pointer"
                 onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
                 required
               />
               <button
                 type="submit"
                 disabled={uploading}
-                className="w-full py-2.5 rounded-lg font-semibold text-sm bg-cyanAccent text-darkBg hover:bg-cyanAccent/90 transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
+                className="w-full py-2.5 rounded-lg font-semibold text-sm bg-blue-600 text-white dark:bg-[#00E5FF] dark:text-[#080A10] hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center space-x-2 active:scale-95"
               >
                 {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 <span>{uploading ? "Ingesting..." : "Upload & Ingest"}</span>
               </button>
               {uploadMsg && (
-                <div className={`flex items-center space-x-2 text-xs p-2.5 rounded-lg border ${uploadMsg.type === "success" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-red-500/10 border-red-500/20 text-red-400"}`}>
+                <div className={`flex items-center space-x-2 text-xs p-2.5 rounded-lg border ${uploadMsg.type === "success" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400"}`}>
                   {uploadMsg.type === "success" ? <CheckCircle className="h-3.5 w-3.5 shrink-0" /> : <XCircle className="h-3.5 w-3.5 shrink-0" />}
                   <span>{uploadMsg.text}</span>
                 </div>
@@ -270,9 +270,9 @@ export default function DocumentsPage() {
           </div>
 
           {/* Trigger Download Card */}
-          <div className="glass-panel border border-darkBorder rounded-xl p-6">
-            <h2 className="text-lg font-bold text-white mb-4 flex items-center space-x-2">
-              <RefreshCw className="h-5 w-5 text-tealAccent" />
+          <div className="bg-white border border-slate-200 dark:bg-[#0E121E]/60 dark:border-[#1E2538] rounded-xl p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-slate-950 dark:text-white mb-4 flex items-center space-x-2">
+              <RefreshCw className="h-5 w-5 text-indigo-600 dark:text-[#00F5D4]" />
               <span>Trigger Auto-Download</span>
             </h2>
             <p className="text-xs text-slate-500 mb-4">
@@ -280,14 +280,14 @@ export default function DocumentsPage() {
             </p>
             <form onSubmit={handleTrigger} className="space-y-3">
               <input
-                className="w-full px-3 py-2 rounded-lg bg-darkBg border border-darkBorder text-slate-200 text-sm placeholder-slate-500 focus:outline-none focus:border-tealAccent/50"
+                className="w-full px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] text-slate-900 dark:text-slate-200 text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-600 dark:focus:border-[#00F5D4]/50"
                 placeholder="Stock Symbol (e.g. INFOSYS)"
                 value={triggerSymbol}
                 onChange={(e) => setTriggerSymbol(e.target.value)}
                 required
               />
               <select
-                className="w-full px-3 py-2 rounded-lg bg-darkBg border border-darkBorder text-slate-200 text-sm focus:outline-none focus:border-tealAccent/50"
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:border-indigo-600 dark:focus:border-[#00F5D4]/50"
                 value={triggerType}
                 onChange={(e) => setTriggerType(e.target.value)}
               >
@@ -296,14 +296,14 @@ export default function DocumentsPage() {
                 ))}
               </select>
               <select
-                className="w-full px-3 py-2 rounded-lg bg-darkBg border border-darkBorder text-slate-200 text-sm focus:outline-none focus:border-tealAccent/50"
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:border-indigo-600 dark:focus:border-[#00F5D4]/50"
                 value={triggerYear}
                 onChange={(e) => setTriggerYear(Number(e.target.value))}
               >
                 {years.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
               <input
-                className="w-full px-3 py-2 rounded-lg bg-darkBg border border-darkBorder text-slate-200 text-sm placeholder-slate-500 focus:outline-none focus:border-tealAccent/50"
+                className="w-full px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] text-slate-900 dark:text-slate-200 text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-600 dark:focus:border-[#00F5D4]/50"
                 placeholder="Quarter (e.g. Q2) — optional"
                 value={triggerQuarter}
                 onChange={(e) => setTriggerQuarter(e.target.value)}
@@ -311,13 +311,13 @@ export default function DocumentsPage() {
               <button
                 type="submit"
                 disabled={triggering}
-                className="w-full py-2.5 rounded-lg font-semibold text-sm bg-tealAccent text-darkBg hover:bg-tealAccent/90 transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
+                className="w-full py-2.5 rounded-lg font-semibold text-sm bg-indigo-600 text-white dark:bg-[#00F5D4] dark:text-[#080A10] hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center space-x-2 active:scale-95"
               >
                 {triggering ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                <span>{triggering ? "Searching & Downloading..." : "Trigger Download"}</span>
+                <span>{triggering ? "Downloading..." : "Trigger Download"}</span>
               </button>
               {triggerMsg && (
-                <div className={`flex items-center space-x-2 text-xs p-2.5 rounded-lg border ${triggerMsg.type === "success" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-red-500/10 border-red-500/20 text-red-400"}`}>
+                <div className={`flex items-center space-x-2 text-xs p-2.5 rounded-lg border ${triggerMsg.type === "success" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400"}`}>
                   {triggerMsg.type === "success" ? <CheckCircle className="h-3.5 w-3.5 shrink-0" /> : <XCircle className="h-3.5 w-3.5 shrink-0" />}
                   <span>{triggerMsg.text}</span>
                 </div>
@@ -327,15 +327,15 @@ export default function DocumentsPage() {
         </div>
 
         {/* Right: Documents List */}
-        <div className="xl:col-span-2 glass-panel border border-darkBorder rounded-xl p-6">
+        <div className="xl:col-span-2 bg-white border border-slate-200 dark:bg-[#0E121E]/80 dark:border-[#1E2538] rounded-xl p-6 shadow-sm dark:shadow-xl transition-colors duration-200">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-white flex items-center space-x-2">
-              <FileText className="h-5 w-5 text-violet-400" />
+            <h2 className="text-xl font-bold text-slate-950 dark:text-white flex items-center space-x-2">
+              <FileText className="h-5 w-5 text-violet-600 dark:text-violet-400" />
               <span>Ingested Documents</span>
             </h2>
             <button
               onClick={fetchData}
-              className="p-2 rounded-lg bg-darkBg/60 border border-darkBorder hover:border-cyanAccent/30 text-slate-400 hover:text-cyanAccent transition-all"
+              className="p-2 rounded-lg bg-slate-50 dark:bg-[#0B0F19]/60 border border-slate-200 dark:border-[#1E2538] hover:border-blue-600 dark:hover:border-cyanAccent/30 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-cyanAccent transition-all shadow-sm"
             >
               <RefreshCw className="h-4 w-4" />
             </button>
@@ -344,16 +344,16 @@ export default function DocumentsPage() {
           {/* Filters */}
           <div className="flex flex-wrap gap-3 mb-6">
             <div className="relative flex-1 min-w-[140px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
               <input
-                className="w-full pl-9 pr-3 py-2 rounded-lg bg-darkBg border border-darkBorder text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyanAccent/50"
+                className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] text-sm text-slate-900 dark:text-slate-200 placeholder-slate-450 focus:outline-none focus:border-blue-600 dark:focus:border-cyanAccent/50 font-medium"
                 placeholder="Filter by symbol..."
                 value={filterSymbol}
                 onChange={(e) => setFilterSymbol(e.target.value)}
               />
             </div>
             <select
-              className="px-3 py-2 rounded-lg bg-darkBg border border-darkBorder text-slate-200 text-sm focus:outline-none focus:border-cyanAccent/50"
+              className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:border-blue-600 dark:focus:border-cyanAccent/50 font-semibold"
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
             >
@@ -366,12 +366,12 @@ export default function DocumentsPage() {
 
           {/* Table */}
           {loading ? (
-            <div className="flex items-center justify-center py-16 text-slate-500">
+            <div className="flex items-center justify-center py-16 text-slate-400 dark:text-slate-500 font-medium">
               <Loader2 className="h-6 w-6 animate-spin mr-3" />
               Loading documents...
             </div>
           ) : documents.length === 0 ? (
-            <div className="py-16 text-center text-slate-500">
+            <div className="py-16 text-center text-slate-400 dark:text-slate-500 font-medium">
               <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
               <p>No documents ingested yet.</p>
               <p className="text-xs mt-1">Upload a file or trigger an auto-download.</p>
@@ -380,45 +380,45 @@ export default function DocumentsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-sm">
                 <thead>
-                  <tr className="border-b border-darkBorder text-xs text-slate-400 uppercase">
-                    <th className="py-3 px-3">Symbol</th>
-                    <th className="py-3 px-3">Type</th>
-                    <th className="py-3 px-3">FY</th>
-                    <th className="py-3 px-3">Quarter</th>
-                    <th className="py-3 px-3">Ver</th>
-                    <th className="py-3 px-3">File</th>
-                    <th className="py-3 px-3">Uploaded</th>
+                  <tr className="border-b border-slate-100 dark:border-[#1E2538] text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider bg-slate-50/50 dark:bg-[#0F1322]/50">
+                    <th className="py-3.5 px-3">Symbol</th>
+                    <th className="py-3.5 px-3">Type</th>
+                    <th className="py-3.5 px-3">FY</th>
+                    <th className="py-3.5 px-3">Quarter</th>
+                    <th className="py-3.5 px-3">Ver</th>
+                    <th className="py-3.5 px-3">File</th>
+                    <th className="py-3.5 px-3">Uploaded</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100 dark:divide-[#1E2538]/40">
                   {documents.map((doc) => (
                     <tr
                       key={doc.id}
-                      className="border-b border-darkBorder/40 hover:bg-darkPanel/20 transition-all"
+                      className="hover:bg-slate-50/30 dark:hover:bg-[#0E121E]/30 transition-colors text-sm"
                     >
-                      <td className="py-3 px-3 font-bold text-cyanAccent">{doc.stock_symbol}</td>
+                      <td className="py-3 px-3 font-black text-blue-600 dark:text-cyanAccent">{doc.stock_symbol}</td>
                       <td className="py-3 px-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${DOC_TYPE_COLORS[doc.document_type] || "bg-slate-500/10 text-slate-400"}`}>
+                        <span className={`text-xs px-2.5 py-0.5 rounded-full border font-bold uppercase tracking-wider ${DOC_TYPE_COLORS[doc.document_type] || "bg-slate-500/10 text-slate-500"}`}>
                           {DOC_TYPE_LABELS[doc.document_type] || doc.document_type}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-slate-300">{doc.financial_year}</td>
-                      <td className="py-3 px-3 text-slate-400">{doc.quarter || "—"}</td>
-                      <td className="py-3 px-3 text-slate-400">v{doc.version}{doc.is_latest ? " ✓" : ""}</td>
+                      <td className="py-3 px-3 text-slate-700 dark:text-slate-300 font-bold">{doc.financial_year}</td>
+                      <td className="py-3 px-3 text-slate-500 dark:text-slate-400 font-medium">{doc.quarter || "—"}</td>
+                      <td className="py-3 px-3 text-slate-500 dark:text-slate-400 font-medium">v{doc.version}{doc.is_latest ? " ✓" : ""}</td>
                       <td className="py-3 px-3">
                         {doc.file_exists ? (
-                          <span className="flex items-center space-x-1 text-emerald-400 text-xs">
+                          <span className="flex items-center space-x-1 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
                             <CheckCircle className="h-3.5 w-3.5" />
                             <span>OK</span>
                           </span>
                         ) : (
-                          <span className="flex items-center space-x-1 text-red-400 text-xs">
+                          <span className="flex items-center space-x-1 text-red-600 dark:text-red-400 text-xs font-bold">
                             <XCircle className="h-3.5 w-3.5" />
                             <span>Missing</span>
                           </span>
                         )}
                       </td>
-                      <td className="py-3 px-3 text-slate-500 text-xs">
+                      <td className="py-3 px-3 text-slate-400 dark:text-slate-500 text-xs font-medium">
                         {new Date(doc.uploaded_at).toLocaleDateString()}
                       </td>
                     </tr>

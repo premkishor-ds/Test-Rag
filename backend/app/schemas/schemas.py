@@ -222,3 +222,13 @@ class NewsResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class StockChatRequest(BaseModel):
+    message: str
+    conversationId: Optional[str] = None
+
+class StockChatResponse(BaseModel):
+    answer: str
+    sources: List[Dict[str, Any]]
+    scores: Optional[Dict[str, float]] = None
+    comparison_table: Optional[List[Dict[str, Any]]] = None

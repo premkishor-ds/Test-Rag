@@ -54,24 +54,30 @@ If you do not have Docker installed, you can run both services natively:
 
 Follow these steps to research and analyze stocks on your platform:
 
-### Step 1: Register New Stocks
-Before analyzing a stock, you must register it in the system. 
-1. Open the CSV file located at `backend/data/stocks.csv` in Excel or a text editor.
-2. Add your stock tickers in the following format:
+### Step 1: Register New Stocks (Symbols Only!)
+To track new companies, you only need to supply the stock ticker symbol (e.g. `INFY`, `RELIANCE`, `TCS`). The system automatically queries the **Yahoo Finance Live API** over the internet to fetch and populate:
+- **Company Profile**: Full Name, Sector, and Industry.
+- **Financial & Valuation Metrics**: Market Cap, PE Ratio, PEG Ratio, 52-Week High/Low, Total Revenue, Revenue/Earnings Growth, ROE, ROCE, and Operating Cash Flow.
+
+*If there is no internet connection or a symbol is not found on Yahoo Finance, the system automatically falls back to the local Qwen2.5 model to enrich the metadata.*
+
+1. Open the CSV file located at `backend/data/stocks.csv`.
+2. Add your stock symbols under the `symbol` column (you can leave name, sector, industry, and market_cap empty!):
    ```csv
    symbol,name,sector,industry,market_cap
-   INFY,Infosys Limited,Technology,IT Consulting,680000.0
-   RELIANCE,Reliance Industries Ltd,Energy,Oil & Gas,1720000.0
+   INFY,,,,
+   RELIANCE,,,,
+   TCS,,,,
    ```
-3. Save the file.
+3. Save the file and start or restart the backend. The server logs will confirm the internet sync: `Enriching metadata for symbol: INFY from Yahoo Finance API...` and save all the real-time financial stats to your local database.
 
 ### Step 2: Upload Financial Documents & Filings
 To enable qualitative RAG capabilities (AI chat & qualitative analysis):
 1. Copy annual reports, investor presentations, or call transcripts (in `.pdf`, `.docx`, `.txt`, or `.html` formats) into the `backend/data/documents` folder.
-2. **Naming Convention (Critical)**: Name the file starting with `SYMBOL_YEAR` followed by any description:
+2. **Naming Convention**: Name the file starting with `SYMBOL_YEAR` (matching the symbol registered in Step 1):
    - `INFY_2025_AnnualReport.txt`
    - `RELIANCE_2024_InvestorPresentation.pdf`
-3. The background scheduler checks for updates. When you restart the backend server (or wait for the loop), it will automatically parse the files, split them into chunks, vectorize them, and save them to the local Qdrant collection.
+3. The background scheduler checks for updates. On boot (or on the scheduler loop), it will automatically parse the files, split them into chunks, vectorize them using local embeddings, and save them to the local Qdrant collection.
 
 ### Step 3: Use the Dashboard
 - Open `http://localhost:3000`.

@@ -66,6 +66,7 @@ class Stock(Base):
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     annual_reports = relationship("AnnualReport", back_populates="stock", cascade="all, delete-orphan")
+    corporate_documents = relationship("CorporateDocument", back_populates="stock", cascade="all, delete-orphan")
     quarterly_results = relationship("QuarterlyResult", back_populates="stock", cascade="all, delete-orphan")
     financial_metrics = relationship("FinancialMetric", back_populates="stock", cascade="all, delete-orphan")
     valuation_metrics = relationship("ValuationMetric", back_populates="stock", cascade="all, delete-orphan")
@@ -87,6 +88,22 @@ class AnnualReport(Base):
     summary = Column(Text)
 
     stock = relationship("Stock", back_populates="annual_reports")
+
+class CorporateDocument(Base):
+    __tablename__ = "corporate_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    stock_symbol = Column(String(20), ForeignKey("stocks.symbol", ondelete="CASCADE"), nullable=False)
+    document_type = Column(String(50), nullable=False)  # 'annual_report', 'quarterly_result', 'concall', 'presentation'
+    file_path = Column(String(512), nullable=False)
+    financial_year = Column(Integer, nullable=False)
+    quarter = Column(String(5), nullable=True)  # Q1, Q2, Q3, Q4, or None
+    uploaded_at = Column(DateTime, default=datetime.datetime.utcnow)
+    version = Column(Integer, default=1)
+    is_latest = Column(Boolean, default=True)
+    summary = Column(Text)
+
+    stock = relationship("Stock", back_populates="corporate_documents")
 
 class QuarterlyResult(Base):
     __tablename__ = "quarterly_results"

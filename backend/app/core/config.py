@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     QDRANT_COLLECTION_NAME: str = "stock_documents"
 
     # Ollama Infrastructure Configuration
-    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://192.168.10.148:11434")
+    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "https://ai-based-suncoast-rag-search-backend.24livehost.com")
     OLLAMA_LLM_MODEL: str = "qwen2.5:14b"
     OLLAMA_EMBED_MODEL: str = "nomic-embed-text"
 

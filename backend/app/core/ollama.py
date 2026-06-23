@@ -21,8 +21,11 @@ class OllamaClient:
         if system_prompt:
             payload["system"] = system_prompt
             
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
         try:
-            response = requests.post(url, json=payload, timeout=90)
+            response = requests.post(url, json=payload, headers=headers, timeout=90)
             response.raise_for_status()
             data = response.json()
             return data.get("response", "")
@@ -36,8 +39,11 @@ class OllamaClient:
             "model": self.embed_model,
             "input": text
         }
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
         try:
-            response = requests.post(url, json=payload, timeout=30)
+            response = requests.post(url, json=payload, headers=headers, timeout=30)
             response.raise_for_status()
             data = response.json()
             # The API returns embeddings list under embeddings key, or embedding key

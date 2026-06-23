@@ -68,7 +68,16 @@ export default function StockAnalysis() {
         const res = await fetch(`${API_URL}/api/v1/stocks`);
         const data = await res.json();
         setStocks(data);
-        if (data.length > 0) setSelectedSymbol(data[0].symbol);
+        
+        // Read URL query parameter for stock symbol
+        const params = new URLSearchParams(window.location.search);
+        const urlSymbol = params.get("symbol")?.toUpperCase();
+        
+        if (urlSymbol && data.some((s: Stock) => s.symbol === urlSymbol)) {
+          setSelectedSymbol(urlSymbol);
+        } else if (data.length > 0) {
+          setSelectedSymbol(data[0].symbol);
+        }
       } catch (err) {
         console.error(err);
       }
@@ -143,7 +152,13 @@ export default function StockAnalysis() {
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <select 
             value={selectedSymbol} 
-            onChange={(e) => setSelectedSymbol(e.target.value)} 
+            onChange={(e) => {
+              const sym = e.target.value;
+              setSelectedSymbol(sym);
+              const url = new URL(window.location.href);
+              url.searchParams.set("symbol", sym);
+              window.history.pushState({}, "", url.toString());
+            }} 
             className="flex-grow md:flex-initial bg-white border border-slate-200 hover:border-slate-300 dark:bg-[#0B0F19] dark:border-[#1E2538] dark:hover:border-[#2E3752] rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-blue-600 dark:focus:border-[#00E5FF] transition-all shadow-sm"
           >
             {stocks.map((s) => (

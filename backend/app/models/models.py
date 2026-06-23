@@ -349,3 +349,18 @@ class StockArticle(Base):
     __table_args__ = (UniqueConstraint('url', name='_article_url_uc'),)
 
     stock = relationship("Stock", back_populates="articles")
+
+
+class AlertRule(Base):
+    __tablename__ = "alert_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    stock_symbol = Column(String(20), ForeignKey("stocks.symbol", ondelete="CASCADE"), nullable=False, index=True)
+    indicator = Column(String(50), nullable=False) # "RSI", "Sentiment", "Price"
+    operator = Column(String(10), nullable=False)  # ">", "<", "=="
+    threshold_value = Column(Float, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    stock = relationship("Stock")
+

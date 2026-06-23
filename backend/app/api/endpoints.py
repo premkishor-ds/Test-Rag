@@ -566,3 +566,54 @@ def compare_stocks(symbol_a: str, symbol_b: str, db: Session = Depends(get_db)):
     }
 
 
+# 15. Global Semantic Search Endpoint
+@router.get("/search/global")
+def global_semantic_search(query: str, limit: int = 10, db: Session = Depends(get_db)):
+    """Search across all stored corporate documents and news in vector database."""
+    rag = RagService(db)
+    results = rag.search_vector_db(query, limit=limit)
+    return results
+
+
+# 16. Alert Rules CRUD Endpoints
+from app.models.models import AlertRule
+from pydantic import BaseModel
+
+class AlertRuleCreate(BaseModel):
+    stock_symbol: str
+    indicator: str
+    operator: str
+    threshold_value: float
+
+@router.get("/alerts/rules")
+def get_alert_rules(db: Session = Depends(get_db)):
+    """List all custom alert rules."""
+    return db.query(AlertRule).all()
+
+@router.post("/alerts/rules")
+def create_alert_rule(rule: AlertRuleCreate, db: Session = Depends(get_db)):
+    """Create a new alert trigger rule."""
+    db_rule = AlertRule(
+        stock_symbol=rule.stock_symbol.upper(),
+        indicator=rule.indicator,
+        operator=rule.operator,
+        threshold_value=rule.threshold_value,
+        is_active=True
+    )
+    db.add(db_rule)
+    db.commit()
+    db.refresh(db_rule)
+    return db_rule
+
+@router.delete("/alerts/rules/{rule_id}")
+def delete_alert_rule(rule_id: int, db: Session = Depends(get_db)):
+    """Delete an active alert rule."""
+    rule = db.query(AlertRule).filter(AlertRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Alert rule not found")
+    db.delete(rule)
+    db.commit()
+    return {"message": "Alert rule deleted successfully"}
+
+
+

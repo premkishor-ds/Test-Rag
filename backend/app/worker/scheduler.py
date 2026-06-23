@@ -409,8 +409,18 @@ def run_scheduler_loop():
             if time_since_last_run >= seconds_in_week or csv_changed:
                 scheduler.scan_and_update()
                 time_since_last_run = 0.0
+                
+                # Trigger Weekly AI Digest creation
+                try:
+                    logger.info("Triggering Weekly AI Portfolio Digest compilation...")
+                    from app.services.newsletter import NewsletterService
+                    digest = NewsletterService.compile_weekly_digest(db=SessionLocal())
+                    logger.info(f"\n--- WEEKLY AI DIGEST BRIEF ---\n{digest}\n-----------------------------")
+                except Exception as ex:
+                    logger.error(f"Failed compiling weekly newsletter: {ex}")
         except Exception as e:
             logger.error(f"Scheduler exception: {e}")
+
 
 
 

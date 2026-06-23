@@ -77,6 +77,9 @@ export default function RootLayout({
                 <Link href="/watchlist" className="text-sm font-semibold tracking-wide text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-[#00E5FF] transition-all">
                   Watchlists
                 </Link>
+                <Link href="/documents" className="text-sm font-semibold tracking-wide text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-[#00E5FF] transition-all">
+                  Documents
+                </Link>
               </nav>
 
               {/* Right: Theme Toggle & Node Status */}

@@ -512,7 +512,7 @@ export default function StockAnalysis() {
                               </>
                             )}
                           </LineChart>
-                        </>
+                        </ResponsiveContainer>
                       )}
                     </div>
                   </div>

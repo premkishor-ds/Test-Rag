@@ -215,11 +215,17 @@ def get_audit_logs(
         for l in logs
     ]
 
-# 11. Conversational Stock Chat
 @router.post("/stock-chat", response_model=StockChatResponse)
 def stock_chat(request: StockChatRequest, db: Session = Depends(get_db)):
     chat_service = StockChatService(db)
-    result = chat_service.process_chat(request.message, request.conversationId)
+    result = chat_service.process_chat(
+        request.message,
+        request.conversationId,
+        model=request.model,
+        temperature=request.temperature,
+        top_k=request.topK,
+        custom_system_prompt=request.systemPrompt
+    )
     
     # Save audit log entry for the chat query
     import json

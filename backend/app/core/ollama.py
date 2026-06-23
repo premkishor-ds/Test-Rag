@@ -11,15 +11,17 @@ class OllamaClient:
         self.llm_model = settings.OLLAMA_LLM_MODEL
         self.embed_model = settings.OLLAMA_EMBED_MODEL
 
-    def generate_completion(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+    def generate_completion(self, prompt: str, system_prompt: Optional[str] = None, temperature: Optional[float] = None, model: Optional[str] = None) -> str:
         url = f"{self.base_url}/api/generate"
         payload = {
-            "model": self.llm_model,
+            "model": model or self.llm_model,
             "prompt": prompt,
             "stream": False
         }
         if system_prompt:
             payload["system"] = system_prompt
+        if temperature is not None:
+            payload["options"] = {"temperature": temperature}
             
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"

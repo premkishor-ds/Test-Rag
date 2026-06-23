@@ -146,7 +146,15 @@ class StockChatService:
             })
         return table
 
-    def process_chat(self, message: str, conversation_id: Optional[str] = None) -> Dict[str, Any]:
+    def process_chat(
+        self,
+        message: str,
+        conversation_id: Optional[str] = None,
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        custom_system_prompt: Optional[str] = None
+    ) -> Dict[str, Any]:
         detected_symbols = self.detect_symbols(message)
         logger.info(f"Chat message: '{message}', detected: {detected_symbols}")
 
@@ -166,14 +174,19 @@ class StockChatService:
             all_stocks = self.db.query(Stock).all()
             suggestions = [s.symbol for s in all_stocks[:4]]
             
-            system_prompt = (
+            system_prompt = custom_system_prompt or (
                 "You are EQUITY.AI, a premium AI stock research assistant. "
                 "Answer the user's general conversational or financial question politely, accurately, and concisely. "
                 "At the end of your response, if relevant, remind the user that they can ask you to run deep analyses "
                 f"on specific stocks available in our database (such as {', '.join(suggestions)})."
             )
             try:
-                answer = ollama_client.generate_completion(message, system_prompt=system_prompt)
+                answer = ollama_client.generate_completion(
+                    message,
+                    system_prompt=system_prompt,
+                    temperature=temperature,
+                    model=model
+                )
             except Exception as e:
                 answer = f"Hello! I am your EQUITY.AI Stock Copilot. I encountered an issue querying the model node: {e}"
                 
@@ -212,7 +225,7 @@ class StockChatService:
         scores = self.calculate_scores(active_symbol)
         
         # Pull vector chunks and run local reranker
-        raw_docs = self.rag_service.search_vector_db(message, stock_symbol=active_symbol, limit=10)
+        raw_docs = self.rag_service.search_vector_db(message, stock_symbol=active_symbol, limit=top_k or 10)
         vector_docs = self.rag_service.rerank_documents(message, raw_docs, top_k=3)
 
         # Build prompt context
@@ -222,7 +235,7 @@ class StockChatService:
                 context_parts.append(doc["content"])
         context_str = "\n\n".join(context_parts)
 
-        system_prompt = (
+        system_prompt = custom_system_prompt or (
             "You are a premium stock research agent. Your task is to output a comprehensive financial analysis. "
             "You MUST follow the requested markdown structure exactly. Use probability-based language, "
             "never guarantee returns, and never say 'buy now'."
@@ -249,7 +262,12 @@ class StockChatService:
         )
 
         try:
-            answer = ollama_client.generate_completion(prompt, system_prompt=system_prompt)
+            answer = ollama_client.generate_completion(
+                prompt,
+                system_prompt=system_prompt,
+                temperature=temperature,
+                model=model
+            )
         except Exception as e:
             answer = f"Error generating answer: {e}"
 

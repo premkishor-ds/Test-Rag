@@ -226,6 +226,10 @@ class NewsResponse(BaseModel):
 class StockChatRequest(BaseModel):
     message: str
     conversationId: Optional[str] = None
+    model: Optional[str] = None
+    temperature: Optional[float] = None
+    topK: Optional[int] = None
+    systemPrompt: Optional[str] = None
 
 class StockChatResponse(BaseModel):
     answer: str

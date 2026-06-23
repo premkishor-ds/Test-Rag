@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { 
   MessageSquare, Sparkles, AlertCircle, Search, ArrowUpRight, 
   Trash2, FileText, ChevronDown, ChevronUp, BarChart2, Plus, 
-  Menu, X, Send, History, Briefcase, TrendingUp
+  Menu, X, Send, History, Briefcase, TrendingUp, Settings, Sliders, Cpu
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -54,6 +54,19 @@ export default function StockChat() {
   const [expandedSource, setExpandedSource] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Settings Panel States
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("qwen2.5:14b");
+  const [temperature, setTemperature] = useState(0.2);
+  const [topK, setTopK] = useState(10);
+  const [customSystemPrompt, setCustomSystemPrompt] = useState("");
+
+  // Temporary Settings (for form editing before save)
+  const [tempModel, setTempModel] = useState("qwen2.5:14b");
+  const [tempTemperature, setTempTemperature] = useState(0.2);
+  const [tempTopK, setTempTopK] = useState(10);
+  const [tempSystemPrompt, setTempSystemPrompt] = useState("");
+
   // Hide global layout footer and stretch main container on mount, restore on unmount
   useEffect(() => {
     const main = document.querySelector("main");
@@ -99,6 +112,35 @@ export default function StockChat() {
     }
   }, []);
 
+  // Load chat settings from local storage
+  useEffect(() => {
+    const savedModel = localStorage.getItem("equity_ai_chat_model");
+    if (savedModel) {
+      setSelectedModel(savedModel);
+      setTempModel(savedModel);
+    }
+    
+    const savedTemp = localStorage.getItem("equity_ai_chat_temp");
+    if (savedTemp) {
+      const v = parseFloat(savedTemp);
+      setTemperature(v);
+      setTempTemperature(v);
+    }
+    
+    const savedTopK = localStorage.getItem("equity_ai_chat_topK");
+    if (savedTopK) {
+      const v = parseInt(savedTopK);
+      setTopK(v);
+      setTempTopK(v);
+    }
+    
+    const savedPrompt = localStorage.getItem("equity_ai_chat_systemPrompt");
+    if (savedPrompt) {
+      setCustomSystemPrompt(savedPrompt);
+      setTempSystemPrompt(savedPrompt);
+    }
+  }, []);
+
   // Save sessions to local storage when messages or sessions change
   const saveSessions = (updatedSessions: ChatSession[]) => {
     setSessions(updatedSessions);
@@ -106,6 +148,12 @@ export default function StockChat() {
   };
 
   const startNewSession = () => {
+    // Prevent starting a new session if the current active session is already blank
+    const currentSession = sessions.find((s) => s.id === currentSessionId);
+    if (currentSession && currentSession.messages.length === 0) {
+      return;
+    }
+
     const newId = Math.random().toString(36).substring(7);
     const newSession: ChatSession = {
       id: newId,
@@ -148,6 +196,28 @@ export default function StockChat() {
     }
   };
 
+  const handleSaveSettings = () => {
+    setSelectedModel(tempModel);
+    setTemperature(tempTemperature);
+    setTopK(tempTopK);
+    setCustomSystemPrompt(tempSystemPrompt);
+
+    localStorage.setItem("equity_ai_chat_model", tempModel);
+    localStorage.setItem("equity_ai_chat_temp", tempTemperature.toString());
+    localStorage.setItem("equity_ai_chat_topK", tempTopK.toString());
+    localStorage.setItem("equity_ai_chat_systemPrompt", tempSystemPrompt);
+
+    setSettingsOpen(false);
+  };
+
+  const handleOpenSettings = () => {
+    setTempModel(selectedModel);
+    setTempTemperature(temperature);
+    setTempTopK(topK);
+    setTempSystemPrompt(customSystemPrompt);
+    setSettingsOpen(true);
+  };
+
   // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -184,7 +254,11 @@ export default function StockChat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMsg,
-          conversationId: currentSessionId
+          conversationId: currentSessionId,
+          model: selectedModel,
+          temperature: temperature,
+          topK: topK,
+          systemPrompt: customSystemPrompt || undefined
         })
       });
       const data = await res.json();
@@ -301,7 +375,7 @@ export default function StockChat() {
       // 3. Bullet points
       if (line.startsWith("* ") || line.startsWith("- ")) {
         elements.push(
-          <li key={`li-${idx}`} className="ml-4 list-disc text-xs text-slate-700 dark:text-slate-300 leading-relaxed my-1 pl-1">
+          <li key={`li-${idx}`} className="ml-4 list-disc text-xs text-slate-750 dark:text-slate-300 leading-relaxed my-1 pl-1">
             {formatBold(line.substring(2))}
           </li>
         );
@@ -315,7 +389,7 @@ export default function StockChat() {
       }
 
       elements.push(
-        <p key={`p-${idx}`} className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed my-1">
+        <p key={`p-${idx}`} className="text-xs text-slate-750 dark:text-slate-300 leading-relaxed my-1">
           {formatBold(line)}
         </p>
       );
@@ -363,7 +437,7 @@ export default function StockChat() {
 
         {/* Sessions List */}
         <div className="flex-grow overflow-y-auto p-3 space-y-1.5 scrollbar-thin">
-          <div className="flex items-center space-x-2 px-2 pb-2 text-[10px] font-bold text-slate-455 dark:text-slate-550 uppercase tracking-widest">
+          <div className="flex items-center space-x-2 px-2 pb-2 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
             <History className="h-3.5 w-3.5" />
             <span>Recent Analysis</span>
           </div>
@@ -393,8 +467,8 @@ export default function StockChat() {
         </div>
 
         {/* Bottom Panel Info */}
-        <div className="p-4 border-t border-slate-200 dark:border-[#1E2538] text-[9px] text-slate-450 dark:text-slate-500 font-bold uppercase tracking-wider space-y-1">
-          <span>Qwen2.5:14B Active Node</span>
+        <div className="p-4 border-t border-slate-200 dark:border-[#1E2538] text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider space-y-1">
+          <span>{selectedModel} Active Node</span>
         </div>
       </div>
 
@@ -416,9 +490,20 @@ export default function StockChat() {
             </div>
           </div>
           
-          <div className="flex items-center space-x-2 bg-emerald-500/10 dark:bg-emerald-500/5 border border-emerald-500/20 px-2.5 py-1 rounded-full">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
-            <span className="text-[9px] text-emerald-600 dark:text-emerald-450 font-bold uppercase tracking-widest">RAG Engine Online</span>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 bg-emerald-500/10 dark:bg-emerald-500/5 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+              <span className="text-[9px] text-emerald-600 dark:text-emerald-450 font-bold uppercase tracking-widest">RAG Engine Online</span>
+            </div>
+
+            {/* Settings Trigger Gear Button */}
+            <button
+              onClick={handleOpenSettings}
+              className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1A2035] rounded-lg transition-all"
+              title="Chat Settings"
+            >
+              <Settings className="h-4.5 w-4.5" />
+            </button>
           </div>
         </div>
 
@@ -450,7 +535,7 @@ export default function StockChat() {
                         <span className="text-[10px] font-black text-blue-600 dark:text-[#00E5FF] uppercase tracking-widest">{item.tag}</span>
                         <ArrowUpRight className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-500 dark:group-hover:text-[#00E5FF] transition-all" />
                       </div>
-                      <p className="text-xs text-slate-700 dark:text-slate-300 font-semibold mt-2.5">{item.text}</p>
+                      <p className="text-xs text-slate-700 dark:text-slate-355 font-semibold mt-2.5">{item.text}</p>
                     </button>
                   );
                 })}
@@ -552,7 +637,7 @@ export default function StockChat() {
                                   </div>
                                 </button>
                                 {isExpanded && (
-                                  <div className="px-3 py-2.5 bg-slate-50/50 dark:bg-[#07090F] border-t border-slate-200 dark:border-[#1E2538]/70 text-[11px] text-slate-600 dark:text-slate-400 italic leading-relaxed">
+                                  <div className="px-3 py-2.5 bg-slate-50/50 dark:bg-[#07090F] border-t border-slate-200 dark:border-[#1E2538]/70 text-[11px] text-slate-650 dark:text-slate-400 italic leading-relaxed">
                                     "{src.content}"
                                   </div>
                                 )}
@@ -605,6 +690,153 @@ export default function StockChat() {
           </form>
         </div>
       </div>
+
+      {/* Settings Overlay Modal Dialog */}
+      {settingsOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#0B0F1A] border border-slate-200 dark:border-[#1E2538] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-250 dark:border-[#1E2538] flex items-center justify-between">
+              <div className="flex items-center space-x-2 text-slate-900 dark:text-white">
+                <Settings className="h-4.5 w-4.5 text-blue-600 dark:text-[#00E5FF]" />
+                <h3 className="text-sm font-extrabold uppercase tracking-wider">Research Terminal Settings</h3>
+              </div>
+              <button 
+                onClick={() => setSettingsOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5">
+              {/* LLM Model Picker */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-500 dark:text-slate-450 uppercase tracking-wider flex items-center space-x-1.5">
+                  <Cpu className="h-3.5 w-3.5" />
+                  <span>Local LLM Engine Node</span>
+                </label>
+                <select
+                  value={tempModel}
+                  onChange={(e) => setTempModel(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-[#07090F] border border-slate-200 dark:border-[#1E2538] rounded-xl py-2 px-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-600 font-bold"
+                >
+                  <option value="qwen2.5:14b">Qwen 2.5:14B (Optimized Financial Logic)</option>
+                  <option value="qwen2.5:7b">Qwen 2.5:7B (Fast Conversational)</option>
+                  <option value="nomic-embed-text">Nomic Embed (Reference Embeddings)</option>
+                </select>
+              </div>
+
+              {/* Temperature Slider */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[10px] font-black text-slate-500 dark:text-slate-450 uppercase tracking-wider">
+                  <span className="flex items-center space-x-1.5">
+                    <Sliders className="h-3.5 w-3.5" />
+                    <span>Temperature / Creativity</span>
+                  </span>
+                  <span className="text-blue-600 dark:text-[#00E5FF] font-black">{tempTemperature}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.0"
+                  max="1.0"
+                  step="0.1"
+                  value={tempTemperature}
+                  onChange={(e) => setTempTemperature(parseFloat(e.target.value))}
+                  className="w-full accent-blue-600 dark:accent-[#00E5FF]"
+                />
+                <div className="flex justify-between text-[9px] text-slate-400 font-bold uppercase">
+                  <span>Deterministic (0.0)</span>
+                  <span>Creative (1.0)</span>
+                </div>
+              </div>
+
+              {/* Retrieval Limit (Top-K Chunks) */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[10px] font-black text-slate-500 dark:text-slate-450 uppercase tracking-wider">
+                  <span className="flex items-center space-x-1.5">
+                    <FileText className="h-3.5 w-3.5" />
+                    <span>Vector Chunk Retrieve Limit (Top-K)</span>
+                  </span>
+                  <span className="text-blue-600 dark:text-[#00E5FF] font-black">{tempTopK} chunks</span>
+                </div>
+                <input
+                  type="range"
+                  min="3"
+                  max="20"
+                  step="1"
+                  value={tempTopK}
+                  onChange={(e) => setTempTopK(parseInt(e.target.value))}
+                  className="w-full accent-blue-600 dark:accent-[#00E5FF]"
+                />
+                <div className="flex justify-between text-[9px] text-slate-400 font-bold uppercase">
+                  <span>Fast (3 Chunks)</span>
+                  <span>Detailed (20 Chunks)</span>
+                </div>
+              </div>
+
+              {/* System Instruction Override */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-500 dark:text-slate-450 uppercase tracking-wider flex items-center space-x-1.5">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  <span>Custom System Instruction Overrides</span>
+                </label>
+                <textarea
+                  value={tempSystemPrompt}
+                  onChange={(e) => setTempSystemPrompt(e.target.value)}
+                  placeholder="Defaults to: 'You are a premium stock research agent...'"
+                  className="w-full h-20 bg-slate-50 dark:bg-[#07090F] border border-slate-200 dark:border-[#1E2538] rounded-xl py-2 px-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-600 placeholder-slate-500 font-medium"
+                />
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="px-6 py-4 bg-slate-50 dark:bg-[#080A10]/50 border-t border-slate-250 dark:border-[#1E2538] flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm("Are you sure you want to delete all chat history? This action is irreversible.")) {
+                    localStorage.removeItem("equity_ai_chat_sessions");
+                    setSessions([]);
+                    setMessages([]);
+                    setSettingsOpen(false);
+                    // Spawn a default session
+                    const newId = Math.random().toString(36).substring(7);
+                    const newSession: ChatSession = {
+                      id: newId,
+                      title: "New Analysis",
+                      messages: []
+                    };
+                    setCurrentSessionId(newId);
+                    saveSessions([newSession]);
+                  }
+                }}
+                className="px-3.5 py-2 border border-red-200 dark:border-red-900/30 text-[10px] text-red-500 hover:bg-red-500/5 font-bold uppercase tracking-wider rounded-xl transition-all"
+              >
+                Clear History
+              </button>
+
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen(false)}
+                  className="px-4 py-2 border border-slate-200 dark:border-[#1E2538] text-[10px] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white font-bold uppercase tracking-wider rounded-xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveSettings}
+                  className="px-4 py-2 bg-blue-600 dark:bg-[#00E5FF] text-white dark:text-[#080A10] text-[10px] font-bold uppercase tracking-wider rounded-xl hover:opacity-90 transition-all shadow-sm"
+                >
+                  Save Settings
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -161,6 +161,27 @@ class StockChatService:
         elif detected_symbols:
             active_symbol = detected_symbols[0]
 
+        # Check for general greetings or help prompts
+        clean_msg = message.strip().lower().strip("?.!,")
+        greetings = {"hello", "hi", "hey", "greetings", "good morning", "good afternoon", "good evening", "who are you", "what are you", "help", "yo", "hola", "hi there", "hello there"}
+        if clean_msg in greetings or clean_msg.startswith("hi ") or clean_msg.startswith("hello ") or clean_msg.startswith("hey "):
+            all_stocks = self.db.query(Stock).all()
+            suggestions = [s.symbol for s in all_stocks[:4]]
+            return {
+                "answer": (
+                    "Hello! I am your **EQUITY.AI Research Copilot**. I can help you analyze corporate PDFs, "
+                    "financial reports, and key growth metrics for stocks in our database.\n\n"
+                    "Ask me questions like:\n"
+                    "* *'Should I invest in Netweb?'*\n"
+                    "* *'What are the risks in Knowledge Marine?'*\n"
+                    "* *'Compare SJS vs Aeroflex'*\n\n"
+                    f"**Suggested active tickers:** " + ", ".join(suggestions)
+                ),
+                "sources": [],
+                "scores": None,
+                "comparison_table": None
+            }
+
         # Suggest nearest stocks if none detected
         if not active_symbol and not detected_symbols:
             all_stocks = self.db.query(Stock).all()

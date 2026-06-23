@@ -290,7 +290,7 @@ export default function StockChat() {
       // 3. Bullet points
       if (line.startsWith("* ") || line.startsWith("- ")) {
         elements.push(
-          <li key={`li-${idx}`} className="ml-4 list-disc text-xs text-slate-700 dark:text-slate-350 leading-relaxed my-1 pl-1">
+          <li key={`li-${idx}`} className="ml-4 list-disc text-xs text-slate-700 dark:text-slate-300 leading-relaxed my-1 pl-1">
             {formatBold(line.substring(2))}
           </li>
         );
@@ -304,7 +304,7 @@ export default function StockChat() {
       }
 
       elements.push(
-        <p key={`p-${idx}`} className="text-xs text-slate-700 dark:text-slate-350 leading-relaxed my-1">
+        <p key={`p-${idx}`} className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed my-1">
           {formatBold(line)}
         </p>
       );

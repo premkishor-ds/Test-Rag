@@ -171,10 +171,11 @@ class StockChatService:
         model: Optional[str] = None,
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
-        custom_system_prompt: Optional[str] = None
+        custom_system_prompt: Optional[str] = None,
+        source_file: Optional[str] = None
     ) -> Dict[str, Any]:
         detected_symbols = self.detect_symbols(message)
-        logger.info(f"Chat message: '{message}', detected: {detected_symbols}")
+        logger.info(f"Chat message: '{message}', detected: {detected_symbols}, source_file: {source_file}")
 
         active_symbol = None
         # Handle database persisted conversation memory context
@@ -239,7 +240,6 @@ class StockChatService:
             except Exception as e:
                 logger.error(f"Error fetching conversation history: {e}")
 
-
         # If no stock symbol is active or detected, run a standard conversational query through Ollama
         if not active_symbol and not detected_symbols:
             all_stocks = self.db.query(Stock).all()
@@ -297,7 +297,8 @@ class StockChatService:
         scores = self.calculate_scores(active_symbol)
         
         # Pull vector chunks and run local reranker
-        raw_docs = self.rag_service.search_vector_db(message, stock_symbol=active_symbol, limit=top_k or 10)
+        raw_docs = self.rag_service.search_vector_db(message, stock_symbol=active_symbol, limit=top_k or 10, source_file=source_file)
+
         vector_docs = self.rag_service.rerank_documents(message, raw_docs, top_k=3)
 
         # Build prompt context
@@ -364,7 +365,8 @@ class StockChatService:
         model: Optional[str] = None,
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
-        custom_system_prompt: Optional[str] = None
+        custom_system_prompt: Optional[str] = None,
+        source_file: Optional[str] = None
     ):
         detected_symbols = self.detect_symbols(message)
         logger.info(f"Chat stream message: '{message}', detected: {detected_symbols}")
@@ -444,7 +446,7 @@ class StockChatService:
         stock = self.db.query(Stock).filter(Stock.symbol == active_symbol).first()
         scores = self.calculate_scores(active_symbol)
         
-        raw_docs = self.rag_service.search_vector_db(message, stock_symbol=active_symbol, limit=top_k or 10)
+        raw_docs = self.rag_service.search_vector_db(message, stock_symbol=active_symbol, limit=top_k or 10, source_file=source_file)
         vector_docs = self.rag_service.rerank_documents(message, raw_docs, top_k=3)
 
         context_parts = []

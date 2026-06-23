@@ -55,6 +55,7 @@ export default function DocumentsPage() {
   const [loading, setLoading] = useState(true);
   const [filterSymbol, setFilterSymbol] = useState("");
   const [filterType, setFilterType] = useState("");
+  const [dragActive, setDragActive] = useState(false);
 
   // Upload form state
   const [uploadSymbol, setUploadSymbol] = useState("");
@@ -74,6 +75,25 @@ export default function DocumentsPage() {
   const [triggerMsg, setTriggerMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setUploadFile(e.dataTransfer.files[0]);
+    }
+  };
 
   const [stocks, setStocks] = useState<Array<{ symbol: string; name: string }>>([]);
 
@@ -268,14 +288,48 @@ export default function DocumentsPage() {
                 value={uploadQuarter}
                 onChange={(e) => setUploadQuarter(e.target.value)}
               />
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.txt,.docx,.html"
-                className="w-full text-sm text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-blue-600/10 dark:file:bg-[#00E5FF]/10 file:text-blue-600 dark:file:text-[#00E5FF] file:text-xs file:font-semibold hover:file:bg-blue-600/20 dark:hover:file:bg-[#00E5FF]/20 cursor-pointer"
-                onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                required
-              />
+              <div 
+                onDragEnter={handleDrag}
+                onDragOver={handleDrag}
+                onDragLeave={handleDrag}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`w-full p-6 rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center cursor-pointer ${
+                  dragActive 
+                    ? "border-[#00E5FF] bg-[#00E5FF]/5 shadow-[0_0_15px_rgba(0,229,255,0.07)]" 
+                    : uploadFile 
+                    ? "border-emerald-500/50 bg-emerald-500/5" 
+                    : "border-slate-200 dark:border-[#1E2538] hover:border-blue-600 dark:hover:border-[#00E5FF]/40 bg-slate-50/50 dark:bg-[#0B0F19]/40"
+                }`}
+              >
+                <Upload className={`h-8 w-8 mb-2.5 ${dragActive ? "text-[#00E5FF] animate-bounce" : uploadFile ? "text-emerald-500" : "text-slate-400"}`} />
+                {uploadFile ? (
+                  <div className="text-center">
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-250 truncate max-w-[220px]">
+                      {uploadFile.name}
+                    </p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-bold">
+                      {(uploadFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center select-none">
+                    <p className="text-xs font-bold text-slate-700 dark:text-slate-350">
+                      Drag & drop your PDF file here
+                    </p>
+                    <p className="text-[10px] text-slate-450 mt-0.5 font-bold">
+                      or click to browse from explorer
+                    </p>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.txt,.docx,.html"
+                  className="hidden"
+                  onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                />
+              </div>
               <button
                 type="submit"
                 disabled={uploading}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { ArrowLeftRight, TrendingUp, BarChart2, AlertCircle } from "lucide-react";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -43,6 +43,42 @@ export default function CompareDashboard() {
       setLoading(false);
     }
   };
+
+  const chartData = comparison ? [
+    {
+      name: "Rev Growth",
+      [symA]: parseFloat(comparison.stock_a.revenue_growth) || 0,
+      [symB]: parseFloat(comparison.stock_b.revenue_growth) || 0,
+    },
+    {
+      name: "Profit Growth",
+      [symA]: parseFloat(comparison.stock_a.profit_growth) || 0,
+      [symB]: parseFloat(comparison.stock_b.profit_growth) || 0,
+    },
+    {
+      name: "ROCE",
+      [symA]: parseFloat(comparison.stock_a.roce) || 0,
+      [symB]: parseFloat(comparison.stock_b.roce) || 0,
+    },
+    {
+      name: "ROE",
+      [symA]: parseFloat(comparison.stock_a.roe) || 0,
+      [symB]: parseFloat(comparison.stock_b.roe) || 0,
+    }
+  ] : [];
+
+  const valData = comparison ? [
+    {
+      name: "PE Ratio",
+      [symA]: parseFloat(comparison.stock_a.pe_ratio) || 0,
+      [symB]: parseFloat(comparison.stock_b.pe_ratio) || 0,
+    },
+    {
+      name: "D/E Ratio x10",
+      [symA]: (parseFloat(comparison.stock_a.debt_to_equity) || 0) * 10,
+      [symB]: (parseFloat(comparison.stock_b.debt_to_equity) || 0) * 10,
+    }
+  ] : [];
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 dark:text-white">
@@ -104,8 +140,8 @@ export default function CompareDashboard() {
             </div>
           </div>
 
-          {/* Qualitative Moat / Risk Summary */}
-          <div className="bg-white border border-slate-200 dark:bg-[#0E121E]/60 dark:border-[#1E2538] p-6 rounded-2xl shadow-sm space-y-6">
+          {/* Qualitative Moat / Risk Summary & Interactive Charts */}
+          <div className="bg-white border border-slate-200 dark:bg-[#0E121E]/60 dark:border-[#1E2538] p-6 rounded-2xl shadow-sm space-y-6 flex flex-col justify-between">
             <div>
               <h3 className="text-sm font-extrabold mb-2 flex items-center space-x-2 text-indigo-500">
                 <TrendingUp className="h-4 w-4" />
@@ -116,7 +152,40 @@ export default function CompareDashboard() {
                 <b>{symB}:</b> {comparison.stock_b.sector} ({comparison.stock_b.industry})
               </p>
             </div>
-            <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/10 text-xs">
+
+            {/* Financial Performance Grouped Bar Chart */}
+            <div className="h-48 w-full mt-4">
+              <h4 className="text-[10px] uppercase font-black text-slate-450 mb-2">Performance Benchmark (%)</h4>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1E2538" opacity={0.3} />
+                  <XAxis dataKey="name" stroke="#64748B" fontSize={10} tickLine={false} />
+                  <YAxis stroke="#64748B" fontSize={10} tickLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: "#0E121E", borderColor: "#1E2538", borderRadius: "8px", fontSize: "10px" }} />
+                  <Legend wrapperStyle={{ fontSize: "10px" }} />
+                  <Bar dataKey={symA} fill="#00E5FF" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey={symB} fill="#6366F1" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Valuation & Solvency Grouped Bar Chart */}
+            <div className="h-48 w-full mt-4">
+              <h4 className="text-[10px] uppercase font-black text-slate-450 mb-2">Valuation & Leverage Comparison</h4>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={valData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1E2538" opacity={0.3} />
+                  <XAxis dataKey="name" stroke="#64748B" fontSize={10} tickLine={false} />
+                  <YAxis stroke="#64748B" fontSize={10} tickLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: "#0E121E", borderColor: "#1E2538", borderRadius: "8px", fontSize: "10px" }} />
+                  <Legend wrapperStyle={{ fontSize: "10px" }} />
+                  <Bar dataKey={symA} fill="#00E5FF" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey={symB} fill="#6366F1" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/10 text-xs mt-4">
               <h4 className="font-bold flex items-center space-x-1 text-amber-500 mb-1">
                 <AlertCircle className="h-4 w-4" />
                 <span>Comparison Notes</span>

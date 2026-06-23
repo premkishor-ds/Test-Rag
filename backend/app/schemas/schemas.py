@@ -244,6 +244,8 @@ class StockChatRequest(BaseModel):
     temperature: Optional[float] = None
     topK: Optional[int] = None
     systemPrompt: Optional[str] = None
+    sourceFile: Optional[str] = None
+
 
 class StockChatResponse(BaseModel):
     answer: str
@@ -251,6 +253,7 @@ class StockChatResponse(BaseModel):
     scores: Optional[Dict[str, float]] = None
     comparison_table: Optional[List[Dict[str, Any]]] = None
     conversationId: Optional[str] = None
+    target_symbol: Optional[str] = None
 
 class ChatMessageResponse(BaseModel):
     id: int
@@ -267,6 +270,7 @@ class ConversationResponse(BaseModel):
     id: int
     user_id: int
     title: str
+    target_symbol: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

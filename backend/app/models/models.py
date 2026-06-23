@@ -364,3 +364,17 @@ class AlertRule(Base):
 
     stock = relationship("Stock")
 
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    stock_symbol = Column(String(20), ForeignKey("stocks.symbol", ondelete="CASCADE"), nullable=False, index=True)
+    message = Column(Text, nullable=False)
+    severity = Column(String(20), default="WARNING") # INFO, WARNING, CRITICAL
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    stock = relationship("Stock")
+
+

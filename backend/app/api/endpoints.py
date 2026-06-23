@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import os
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
+
 
 from app.core.database import get_db, SessionLocal
 from app.models.models import Stock, FinancialMetric, ValuationMetric, News, AnalysisReport, AuditLog, SavedFilter, Conversation, ChatMessage
@@ -239,6 +241,52 @@ def delete_conversation(conversation_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Conversation deleted successfully"}
 
+@router.get("/conversations/{conversation_id}/export")
+def export_conversation_markdown(conversation_id: int, db: Session = Depends(get_db)):
+    """Export the conversation thread to a beautifully formatted Markdown report."""
+    conv = db.query(Conversation).filter(Conversation.id == conversation_id, Conversation.user_id == 1).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+        
+    messages = db.query(ChatMessage).filter(ChatMessage.conversation_id == conversation_id).order_by(ChatMessage.created_at.asc()).all()
+    
+    md_content = f"# EQUITY.AI Research Report: {conv.title}\n"
+    md_content += f"Generated on: {conv.updated_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
+    if conv.target_symbol:
+        md_content += f"Active Research Stock Context: **{conv.target_symbol}**\n"
+    md_content += "\n---\n\n"
+    
+    import json
+    for msg in messages:
+        sender_label = "### USER QUERY" if msg.sender == "user" else "### COPILOT FINANCIAL EVALUATION"
+        md_content += f"{sender_label}\n\n{msg.content}\n\n"
+        
+        # Injects source file lists and citations if present in meta
+        if msg.meta_json and msg.sender == "assistant":
+            try:
+                meta = json.loads(msg.meta_json)
+                sources = meta.get("sources", [])
+                if sources:
+                    md_content += "#### Verified Source Citations:\n"
+                    for src in sources:
+                        file_name = src.get("metadata", {}).get("source_file", "unknown")
+                        page = src.get("metadata", {}).get("page_number", 0)
+                        score = src.get("score", 0)
+                        md_content += f"- **{file_name}** (p. {page}) — Match: {round(score * 100)}%\n"
+                    md_content += "\n"
+            except Exception:
+                pass
+        md_content += "---\n\n"
+        
+    import io
+    buf = io.BytesIO(md_content.encode("utf-8"))
+    
+    return StreamingResponse(
+        buf,
+        media_type="text/markdown",
+        headers={"Content-Disposition": f"attachment; filename=Research_Report_{conversation_id}.md"}
+    )
+
 @router.post("/stock-chat", response_model=StockChatResponse)
 def stock_chat(request: StockChatRequest, db: Session = Depends(get_db)):
     # Resolve or create conversation
@@ -277,8 +325,10 @@ def stock_chat(request: StockChatRequest, db: Session = Depends(get_db)):
         model=request.model,
         temperature=request.temperature,
         top_k=request.topK,
-        custom_system_prompt=request.systemPrompt
+        custom_system_prompt=request.systemPrompt,
+        source_file=request.sourceFile
     )
+
     
     # Save Assistant response
     import json
@@ -325,7 +375,8 @@ def stock_chat(request: StockChatRequest, db: Session = Depends(get_db)):
         sources=result["sources"],
         scores=result["scores"],
         comparison_table=result["comparison_table"],
-        conversationId=str(conv.id)
+        conversationId=str(conv.id),
+        target_symbol=conv.target_symbol
     )
 
 @router.post("/stock-chat/stream")
@@ -382,7 +433,8 @@ def stock_chat_stream(request: StockChatRequest, db: Session = Depends(get_db)):
                 model=request.model,
                 temperature=request.temperature,
                 top_k=request.topK,
-                custom_system_prompt=request.systemPrompt
+                custom_system_prompt=request.systemPrompt,
+                source_file=request.sourceFile
             ):
                 if item.get("type") == "text":
                     text = item.get("content", "")
@@ -614,6 +666,98 @@ def delete_alert_rule(rule_id: int, db: Session = Depends(get_db)):
     db.delete(rule)
     db.commit()
     return {"message": "Alert rule deleted successfully"}
+
+
+# 17. Notifications Endpoints
+from app.models.models import Notification
+
+@router.get("/notifications")
+def get_notifications(limit: int = 20, db: Session = Depends(get_db)):
+    """Retrieve warning and risk notifications."""
+    return db.query(Notification).order_by(Notification.created_at.desc()).limit(limit).all()
+
+@router.post("/notifications/{notif_id}/read")
+def mark_notification_read(notif_id: int, db: Session = Depends(get_db)):
+    """Mark a notification log as read."""
+    notif = db.query(Notification).filter(Notification.id == notif_id).first()
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    notif.is_read = True
+    db.commit()
+    return {"status": "success"}
+
+
+# 18. Stock Ingested Documents List
+from app.models.models import CorporateDocument
+
+@router.get("/stock/{symbol}/documents")
+def get_stock_documents(symbol: str, db: Session = Depends(get_db)):
+    """List all parsed files / annual reports / quarterly disclosures for a stock."""
+    docs = db.query(CorporateDocument).filter(CorporateDocument.stock_symbol == symbol.upper()).all()
+    # Unique file names
+    unique_files = list(set([d.file_path.split(os.sep)[-1] for d in docs if d.file_path]))
+    return unique_files
+
+@router.post("/stock/{symbol}/upload-pdf")
+async def upload_pdf(
+    symbol: str,
+    file: UploadFile = File(...),
+    financial_year: Optional[int] = Form(None),
+    quarter: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    import datetime
+    if not financial_year:
+        financial_year = datetime.datetime.now().year
+        
+    stock = db.query(Stock).filter(Stock.symbol == symbol.upper()).first()
+    if not stock:
+        raise HTTPException(status_code=404, detail="Stock not found")
+        
+    if not file.filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+        
+    # Create data/documents folder if not exists
+    doc_dir = os.path.join("backend", "data", "documents")
+    os.makedirs(doc_dir, exist_ok=True)
+    
+    # Save file
+    file_path = os.path.join(doc_dir, f"{stock.symbol}_{file.filename}")
+    try:
+        with open(file_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to write file: {e}")
+        
+    # Ingest document
+    from app.services.ingestion import IngestionEngine
+    try:
+        engine = IngestionEngine(db)
+        source_type = "quarterly_result" if quarter else "annual_report"
+        success = engine.ingest_document(
+            file_path=file_path,
+            stock_symbol=stock.symbol,
+            source_type=source_type,
+            financial_year=financial_year,
+            quarter=quarter
+        )
+        if not success:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            raise HTTPException(status_code=500, detail="PDF ingestion failed during text extraction or vectorization.")
+            
+        return {
+            "status": "success",
+            "message": f"Successfully ingested and vectorized: {file.filename}",
+            "filename": file.filename
+        }
+    except Exception as e:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 
 

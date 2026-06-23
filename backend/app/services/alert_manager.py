@@ -28,6 +28,23 @@ class AlertManager:
                 
             logger.warning(alert_msg)
             
+            # Save Notification directly into SQLite Database
+            try:
+                from app.core.database import SessionLocal
+                from app.models.models import Notification
+                db = SessionLocal()
+                notif = Notification(
+                    stock_symbol=symbol.upper(),
+                    message=alert_msg,
+                    severity="WARNING",
+                    is_read=False
+                )
+                db.add(notif)
+                db.commit()
+                db.close()
+            except Exception as dberr:
+                logger.error(f"Failed to save database notification: {dberr}")
+            
             # Example webhook configuration
             # In a production environment, you can define WEBHOOK_URL in .env
             webhook_url = getattr(settings, "ALERT_WEBHOOK_URL", None)
@@ -37,3 +54,4 @@ class AlertManager:
                     logger.info("Sent webhook notification.")
                 except Exception as e:
                     logger.error(f"Failed to post alert webhook: {e}")
+

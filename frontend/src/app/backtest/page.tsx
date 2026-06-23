@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { TrendingUp, Percent, AlertCircle, Award, RotateCcw, BarChart3 } from "lucide-react";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -23,156 +24,64 @@ interface BacktestMetrics {
 }
 
 function BacktestChart({ data }: { data: Array<{ year: number; portfolio_value: number; benchmark_value: number }> }) {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-
   if (!data || data.length === 0) return null;
 
-  const allValues = data.flatMap(d => [d.portfolio_value, d.benchmark_value]);
-  const maxVal = Math.max(...allValues) * 1.05;
-  const minVal = Math.min(...allValues) * 0.95;
-  const valRange = maxVal - minVal || 1;
-
-  const width = 600;
-  const height = 240;
-  const paddingLeft = 60;
-  const paddingRight = 20;
-  const paddingTop = 20;
-  const paddingBottom = 30;
-
-  const chartWidth = width - paddingLeft - paddingRight;
-  const chartHeight = height - paddingTop - paddingBottom;
-
-  const getCoords = (index: number, value: number) => {
-    const x = paddingLeft + (index / (data.length - 1)) * chartWidth;
-    const y = paddingTop + chartHeight - ((value - minVal) / valRange) * chartHeight;
-    return { x, y };
+  const formatYAxis = (tick: number) => {
+    return `₹${(tick / 100000).toFixed(1)}L`;
   };
-
-  let portfolioPoints = "";
-  let benchmarkPoints = "";
-  let portfolioAreaPoints = "";
-
-  data.forEach((d, i) => {
-    const pCoords = getCoords(i, d.portfolio_value);
-    const bCoords = getCoords(i, d.benchmark_value);
-
-    if (i === 0) {
-      portfolioPoints = `M ${pCoords.x} ${pCoords.y}`;
-      benchmarkPoints = `M ${bCoords.x} ${bCoords.y}`;
-      portfolioAreaPoints = `M ${pCoords.x} ${paddingTop + chartHeight} L ${pCoords.x} ${pCoords.y}`;
-    } else {
-      portfolioPoints += ` L ${pCoords.x} ${pCoords.y}`;
-      benchmarkPoints += ` L ${bCoords.x} ${bCoords.y}`;
-      portfolioAreaPoints += ` L ${pCoords.x} ${pCoords.y}`;
-    }
-
-    if (i === data.length - 1) {
-      portfolioAreaPoints += ` L ${pCoords.x} ${paddingTop + chartHeight} Z`;
-    }
-  });
-
-  const gridTicks = 4;
-  const yTicks = Array.from({ length: gridTicks }, (_, i) => minVal + (i * valRange) / (gridTicks - 1));
 
   return (
     <div className="space-y-4">
       <div className="relative bg-white dark:bg-[#0B0F19] border border-slate-200 dark:border-[#1E2538] rounded-xl p-4 sm:p-6 shadow-sm">
-        <div className="flex items-center space-x-6 mb-4 text-xs font-bold uppercase tracking-wider select-none">
-          <div className="flex items-center space-x-2">
-            <span className="h-3 w-3 rounded-full bg-blue-600 dark:bg-[#00E5FF]"></span>
-            <span className="text-slate-800 dark:text-slate-200">Portfolio Capital</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="h-3 w-3 rounded-full bg-indigo-500"></span>
-            <span className="text-slate-500 dark:text-slate-400">Benchmark Capital</span>
-          </div>
+        <div className="relative w-full h-[260px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="portfolioGlow" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#00E5FF" stopOpacity={0.2}/>
+                  <stop offset="95%" stopColor="#00E5FF" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="benchmarkGlow" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#6366F1" stopOpacity={0.1}/>
+                  <stop offset="95%" stopColor="#6366F1" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1E2538" opacity={0.2} />
+              <XAxis dataKey="year" stroke="#64748B" fontSize={10} tickLine={false} />
+              <YAxis stroke="#64748B" fontSize={10} tickLine={false} tickFormatter={formatYAxis} />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: "#0E121E", 
+                  borderColor: "#1E2538", 
+                  borderRadius: "12px", 
+                  fontSize: "11px",
+                  color: "#fff"
+                }} 
+                formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, ""]}
+              />
+              <Legend wrapperStyle={{ fontSize: "10px", fontWeight: "bold" }} />
+              <Area 
+                name="Portfolio Value"
+                type="monotone" 
+                dataKey="portfolio_value" 
+                stroke="#00E5FF" 
+                strokeWidth={3}
+                fillOpacity={1} 
+                fill="url(#portfolioGlow)" 
+              />
+              <Area 
+                name="Benchmark Index"
+                type="monotone" 
+                dataKey="benchmark_value" 
+                stroke="#6366F1" 
+                strokeWidth={2}
+                fillOpacity={1} 
+                fill="url(#benchmarkGlow)" 
+                strokeDasharray="4 4"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
-
-        <div className="relative w-full h-[240px]">
-          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
-            <defs>
-              <linearGradient id="portfolioGlow" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-              </linearGradient>
-              <linearGradient id="portfolioGlowDark" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#00E5FF" stopOpacity="0.2" />
-                <stop offset="100%" stopColor="#00E5FF" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-
-            {yTicks.map((tick, i) => {
-              const y = paddingTop + chartHeight - (i / (gridTicks - 1)) * chartHeight;
-              return (
-                <g key={i} className="opacity-40 dark:opacity-20">
-                  <line x1={paddingLeft} y1={y} x2={width - paddingRight} y2={y} stroke="currentColor" strokeWidth="1" strokeDasharray="4 4" className="text-slate-300 dark:text-[#1E2538]" />
-                  <text x={paddingLeft - 8} y={y + 4} textAnchor="end" className="fill-slate-500 dark:fill-slate-400 text-[10px] font-bold">
-                    ₹{(tick / 100000).toFixed(1)}L
-                  </text>
-                </g>
-              );
-            })}
-
-            {data.map((d, i) => {
-              const x = paddingLeft + (i / (data.length - 1)) * chartWidth;
-              return (
-                <text key={i} x={x} y={height - 8} textAnchor="middle" className="fill-slate-500 dark:fill-slate-400 text-[10px] font-bold opacity-70">
-                  {d.year}
-                </text>
-              );
-            })}
-
-            <path d={portfolioAreaPoints} className="fill-blue-500/10 dark:hidden" fill="url(#portfolioGlow)" />
-            <path d={portfolioAreaPoints} className="hidden dark:block" fill="url(#portfolioGlowDark)" />
-
-            <path d={benchmarkPoints} fill="none" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" className="opacity-75" />
-            <path d={portfolioPoints} fill="none" className="stroke-blue-600 dark:stroke-[#00E5FF]" strokeWidth="3" strokeLinecap="round" />
-
-            {data.map((d, i) => {
-              const x = paddingLeft + (i / (data.length - 1)) * chartWidth;
-              return (
-                <rect
-                  key={i}
-                  x={x - chartWidth / (data.length - 1) / 2}
-                  y={paddingTop}
-                  width={chartWidth / (data.length - 1)}
-                  height={chartHeight}
-                  fill="transparent"
-                  className="cursor-pointer"
-                  onMouseEnter={() => setHoveredIndex(i)}
-                  onMouseLeave={() => setHoveredIndex(null)}
-                />
-              );
-            })}
-
-            {hoveredIndex !== null && (() => {
-              const d = data[hoveredIndex];
-              const pCoords = getCoords(hoveredIndex, d.portfolio_value);
-              const bCoords = getCoords(hoveredIndex, d.benchmark_value);
-              return (
-                <g>
-                  <line x1={pCoords.x} y1={paddingTop} x2={pCoords.x} y2={paddingTop + chartHeight} stroke="currentColor" strokeWidth="1.5" className="text-slate-350 dark:text-[#2D3753] opacity-60" />
-                  <circle cx={bCoords.x} cy={bCoords.y} r="5" fill="#6366f1" stroke="#ffffff" strokeWidth="1.5" />
-                  <circle cx={pCoords.x} cy={pCoords.y} r="6" className="fill-blue-600 dark:fill-[#00E5FF]" stroke="#ffffff" strokeWidth="2" />
-                </g>
-              );
-            })()}
-          </svg>
-        </div>
-
-        {hoveredIndex !== null && (
-          <div className="absolute top-4 right-4 bg-white dark:bg-[#0E121E] border border-slate-200 dark:border-[#1E2538] p-3 rounded-lg shadow-md text-xs font-semibold space-y-1">
-            <p className="text-slate-500 uppercase text-[9px] font-black tracking-wider">FY {data[hoveredIndex].year}</p>
-            <div className="flex justify-between space-x-6">
-              <span className="text-slate-750 dark:text-slate-300">Portfolio Capital:</span>
-              <span className="text-blue-600 dark:text-[#00E5FF] font-bold">₹{data[hoveredIndex].portfolio_value.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between space-x-6">
-              <span className="text-slate-500">Benchmark Capital:</span>
-              <span className="text-indigo-600 dark:text-indigo-400 font-bold">₹{data[hoveredIndex].benchmark_value.toLocaleString()}</span>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

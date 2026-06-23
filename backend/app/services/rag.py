@@ -14,7 +14,7 @@ class RagService:
     def __init__(self, db: Session):
         self.db = db
 
-    def search_vector_db(self, query: str, stock_symbol: Optional[str] = None, limit: int = 5) -> List[Dict[str, Any]]:
+    def search_vector_db(self, query: str, stock_symbol: Optional[str] = None, limit: int = 5, source_file: Optional[str] = None) -> List[Dict[str, Any]]:
         if not qdrant_client:
             logger.warning("Qdrant client not initialized. Cannot perform vector search.")
             return []
@@ -25,16 +25,25 @@ class RagService:
             
             # Build filters if stock_symbol is provided
             filter_conditions = None
-            if stock_symbol:
+            if stock_symbol or source_file:
                 from qdrant_client.http import models as qmodels
-                filter_conditions = qmodels.Filter(
-                    must=[
+                conditions = []
+                if stock_symbol:
+                    conditions.append(
                         qmodels.FieldCondition(
                             key="stock_symbol",
                             match=qmodels.MatchValue(value=stock_symbol.upper())
                         )
-                    ]
-                )
+                    )
+                if source_file:
+                    conditions.append(
+                        qmodels.FieldCondition(
+                            key="source_file",
+                            match=qmodels.MatchValue(value=source_file)
+                        )
+                    )
+                filter_conditions = qmodels.Filter(must=conditions)
+
 
             # Search in Qdrant
             results = qdrant_client.search(

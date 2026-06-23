@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { 
   MessageSquare, Sparkles, AlertCircle, Search, ArrowUpRight, 
   Trash2, FileText, ChevronDown, ChevronUp, BarChart2, Plus, 
-  Menu, X, Send, History, Briefcase, TrendingUp, Settings, Sliders, Cpu
+  Menu, X, Send, History, Briefcase, TrendingUp, Settings, Sliders, Cpu, Download
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -35,6 +35,7 @@ interface ChatSession {
   id: string;
   title: string;
   messages: ChatMessage[];
+  target_symbol?: string | null;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -52,20 +53,42 @@ export default function StockChat() {
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [expandedSource, setExpandedSource] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [activeSymbol, setActiveSymbol] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<string[]>([]);
+  const [selectedDocument, setSelectedDocument] = useState<string>("");
 
-  // Settings Panel States
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState("qwen2.5:14b");
   const [temperature, setTemperature] = useState(0.2);
   const [topK, setTopK] = useState(10);
   const [customSystemPrompt, setCustomSystemPrompt] = useState("");
 
-  // Temporary Settings (for form editing before save)
   const [tempModel, setTempModel] = useState("qwen2.5:14b");
   const [tempTemperature, setTempTemperature] = useState(0.2);
   const [tempTopK, setTempTopK] = useState(10);
   const [tempSystemPrompt, setTempSystemPrompt] = useState("");
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Hook to fetch documents when active stock symbol changes
+  useEffect(() => {
+    if (activeSymbol) {
+      fetch(`${API_URL}/api/v1/stock/${activeSymbol}/documents`)
+        .then(res => res.ok ? res.json() : [])
+        .then(data => {
+          setDocuments(data || []);
+          setSelectedDocument("");
+        })
+        .catch(err => {
+          console.error("Error fetching documents:", err);
+          setDocuments([]);
+          setSelectedDocument("");
+        });
+    } else {
+      setDocuments([]);
+      setSelectedDocument("");
+    }
+  }, [activeSymbol]);
 
   // Hide global layout footer and stretch main container on mount, restore on unmount
   useEffect(() => {
@@ -100,13 +123,19 @@ export default function StockChat() {
         const formatted: ChatSession[] = data.map((c: any) => ({
           id: String(c.id),
           title: c.title,
-          messages: []
+          messages: [],
+          target_symbol: c.target_symbol
         }));
         setSessions(formatted);
         
         if (autoSelectFirst && formatted.length > 0) {
           setCurrentSessionId(formatted[0].id);
           loadSessionMessages(formatted[0].id);
+          if (formatted[0].target_symbol) {
+            setActiveSymbol(formatted[0].target_symbol);
+          } else {
+            setActiveSymbol(null);
+          }
         } else if (formatted.length === 0) {
           startNewSession();
         }
@@ -191,11 +220,20 @@ export default function StockChat() {
     const tempId = "temp-" + Math.random().toString(36).substring(7);
     setCurrentSessionId(tempId);
     setMessages([]);
+    setActiveSymbol(null);
+    setDocuments([]);
+    setSelectedDocument("");
   };
 
   const selectSession = (id: string) => {
     setCurrentSessionId(id);
     loadSessionMessages(id);
+    const session = sessions.find(s => s.id === id);
+    if (session && session.target_symbol) {
+      setActiveSymbol(session.target_symbol);
+    } else {
+      setActiveSymbol(null);
+    }
   };
 
   const deleteSession = async (id: string, e: React.MouseEvent) => {
@@ -266,7 +304,8 @@ export default function StockChat() {
           model: selectedModel,
           temperature: temperature,
           topK: topK,
-          systemPrompt: customSystemPrompt || undefined
+          systemPrompt: customSystemPrompt || undefined,
+          sourceFile: selectedDocument || undefined
         })
       });
       
@@ -277,6 +316,10 @@ export default function StockChat() {
         if (isTemp && data.conversationId) {
           setCurrentSessionId(String(data.conversationId));
           fetchSessions(false);
+        }
+
+        if (data.target_symbol) {
+          setActiveSymbol(data.target_symbol);
         }
 
         setMessages((prev) => [
@@ -508,6 +551,35 @@ export default function StockChat() {
               <span className="text-[9px] text-emerald-600 dark:text-emerald-450 font-bold uppercase tracking-widest">RAG Engine Online</span>
             </div>
 
+            {/* Export Thread Button */}
+            {currentSessionId && !currentSessionId.startsWith("temp-") && (
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`${API_URL}/api/v1/conversations/${currentSessionId}/export`);
+                    if (response.ok) {
+                      const blob = await response.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `Research_Report_${currentSessionId}.md`;
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                    } else {
+                      alert("Failed to export chat thread.");
+                    }
+                  } catch (e) {
+                    console.error("Export failed:", e);
+                  }
+                }}
+                className="p-1.5 text-slate-550 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1A2035] rounded-lg transition-all"
+                title="Export Research Report"
+              >
+                <Download className="h-4.5 w-4.5" />
+              </button>
+            )}
+
             {/* Settings Trigger Gear Button */}
             <button
               onClick={handleOpenSettings}
@@ -677,6 +749,24 @@ export default function StockChat() {
 
         {/* Centered Pill Search Input Bar */}
         <div className="p-4 bg-white dark:bg-[#0A0D18]/50 border-t border-slate-200 dark:border-[#1E2538] backdrop-blur-md">
+          {documents.length > 0 && (
+            <div className="max-w-3xl mx-auto mb-2 flex items-center space-x-2 px-1">
+              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center space-x-1">
+                <FileText className="h-3.5 w-3.5 text-blue-600 dark:text-[#00E5FF]" />
+                <span>Chat Focus:</span>
+              </span>
+              <select
+                value={selectedDocument}
+                onChange={(e) => setSelectedDocument(e.target.value)}
+                className="bg-slate-105 dark:bg-[#131722] text-[11px] font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-[#1E2538] rounded-lg px-2.5 py-1 focus:outline-none focus:border-blue-500 max-w-xs truncate"
+              >
+                <option value="">All Stock Documents ({documents.length})</option>
+                {documents.map((doc, idx) => (
+                  <option key={idx} value={doc}>{doc}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <form 
             onSubmit={(e) => {
               e.preventDefault();

@@ -152,40 +152,25 @@ class RagService:
         if not docs:
             return []
         
-        prompt_parts = [
-            "You are an AI Reranking Assistant. You will evaluate the relevance of multiple retrieved chunks to a user question.\n",
-            f"User Question: \"{query}\"\n\n",
-            "Here are the retrieved chunks:"
-        ]
-        
-        for idx, doc in enumerate(docs):
-            content_snippet = doc["content"][:400].replace("\n", " ")
-            prompt_parts.append(f"Chunk ID {idx}: {content_snippet} (from {doc['metadata'].get('source_file')})")
-            
-        prompt_parts.append(
-            f"\nEvaluate which chunks contain direct, highly relevant answers or key financial metrics to solve the user's question.\n"
-            f"Select the top {top_k} chunk IDs as a comma-separated list of integers in order of relevance (e.g. '2, 0, 1').\n"
-            "Return ONLY the comma-separated integers. Do not write any other explanation or words."
-        )
-        
-        prompt = "\n".join(prompt_parts)
         try:
-            response = ollama_client.generate_completion(prompt).strip()
-            import re
-            ids = [int(i) for i in re.findall(r'\d+', response)]
-            selected_ids = []
-            for i in ids:
-                if 0 <= i < len(docs) and i not in selected_ids:
-                    selected_ids.append(i)
+            from sentence_transformers import CrossEncoder
+            # Load cross encoder model (cached locally automatically)
+            model = CrossEncoder('sentence-transformers/ms-marco-MiniLM-L-6-v2')
+            pairs = [[query, doc["content"]] for doc in docs]
+            scores = model.predict(pairs)
             
-            if selected_ids:
-                reranked = [docs[i] for i in selected_ids[:top_k]]
-                logger.info(f"LLM Reranked chunks: selected indices {selected_ids[:top_k]} from {len(docs)} retrieved.")
-                return reranked
+            # Associate scores with documents
+            for doc, score in zip(docs, scores):
+                doc["rerank_score"] = float(score)
+            
+            # Sort by rerank score descending
+            docs_sorted = sorted(docs, key=lambda x: x["rerank_score"], reverse=True)
+            logger.info(f"CrossEncoder Reranked {len(docs)} documents. Top score: {docs_sorted[0]['rerank_score'] if docs_sorted else 0}")
+            return docs_sorted[:top_k]
         except Exception as e:
-            logger.error(f"Error during LLM reranking: {e}")
-            
-        return docs[:top_k]
+            logger.error(f"Error during CrossEncoder reranking: {e}")
+            return docs[:top_k]
+
 
     def determine_query_type(self, query: str) -> str:
         # Ask LLM or use simple heuristics to route the query

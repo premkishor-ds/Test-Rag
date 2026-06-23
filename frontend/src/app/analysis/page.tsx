@@ -70,6 +70,14 @@ interface StockArticle {
   fetched_at: string | null;
 }
 
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, BarChart, Bar, CartesianGrid } from "recharts";
+
+interface StockPricePoint {
+  date: string;
+  close_price: number;
+  volume: number;
+}
+
 export default function StockAnalysis() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState("");
@@ -86,6 +94,11 @@ export default function StockAnalysis() {
   const [articles, setArticles] = useState<StockArticle[]>([]);
   const [articlesLoading, setArticlesLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Price History state
+  const [priceHistory, setPriceHistory] = useState<StockPricePoint[]>([]);
+  const [priceLoading, setPriceLoading] = useState(false);
+
 
   useEffect(() => {
     const fetchStocks = async () => {
@@ -110,7 +123,7 @@ export default function StockAnalysis() {
     fetchStocks();
   }, []);
 
-  // Fetch articles whenever selected stock changes
+  // Fetch articles and price history whenever selected stock changes
   useEffect(() => {
     if (!selectedSymbol) return;
     const fetchArticles = async () => {
@@ -127,8 +140,24 @@ export default function StockAnalysis() {
         setArticlesLoading(false);
       }
     };
+    const fetchPriceHistory = async () => {
+      setPriceLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/api/v1/stock/${selectedSymbol}/price-history`);
+        if (res.ok) {
+          const data = await res.json();
+          setPriceHistory(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch price history:", err);
+      } finally {
+        setPriceLoading(false);
+      }
+    };
     fetchArticles();
+    fetchPriceHistory();
   }, [selectedSymbol]);
+
 
   const handleRefreshArticles = async () => {
     if (!selectedSymbol || refreshing) return;
@@ -286,7 +315,14 @@ export default function StockAnalysis() {
               >
                 Scenarios & Thesis
               </button>
+              <button 
+                onClick={() => setActiveTab("visualizations")} 
+                className={`pb-3 font-bold tracking-wide transition-all border-b-2 ${activeTab === 'visualizations' ? 'text-blue-600 border-blue-600 dark:text-[#00E5FF] dark:border-[#00E5FF]' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white border-transparent'}`}
+              >
+                Visualizations
+              </button>
             </div>
+
 
             {/* Tab contents panel */}
             <div className="bg-white border border-slate-200 dark:bg-[#0E121E]/60 dark:border-[#1E2538] rounded-2xl p-6 sm:p-8 min-h-[450px] shadow-sm dark:shadow-xl transition-colors duration-200">
@@ -412,6 +448,75 @@ export default function StockAnalysis() {
                   </div>
                 </div>
               )}
+
+              {activeTab === "visualizations" && (
+                <div className="space-y-8 animate-fade-in">
+                  {/* Price History & Moving Averages Chart */}
+                  <div className="bg-slate-50 dark:bg-[#0B0F19]/40 border border-slate-200 dark:border-[#1E2538] p-5 rounded-xl">
+                    <h4 className="text-xs font-black text-blue-600 dark:text-[#00E5FF] uppercase tracking-wider mb-4">Interactive Price & EMA History</h4>
+                    <div className="h-64 w-full text-[10px]">
+                      {priceLoading ? (
+                        <div className="h-full flex items-center justify-center font-bold text-slate-400">Loading chart data...</div>
+                      ) : priceHistory.length === 0 ? (
+                        <div className="h-full flex items-center justify-center font-bold text-slate-400">No price history available.</div>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={priceHistory}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#2E3752" opacity={0.15} />
+                            <XAxis dataKey="date" stroke="#64748B" tickFormatter={(str) => str?.slice(5, 10)} />
+                            <YAxis stroke="#64748B" domain={['auto', 'auto']} />
+                            <Tooltip contentStyle={{ backgroundColor: '#0B0F19', borderColor: '#1E2538', color: '#fff' }} />
+                            <Legend />
+                            <Line type="monotone" dataKey="close_price" name="Close Price" stroke="#00E5FF" strokeWidth={2.5} dot={false} />
+                            {/* EMA indicator calculations */}
+                            {report.metrics && (
+                              <>
+                                <Line type="monotone" dataKey={() => report.report.valuation_assessment ? parseFloat(report.report.valuation_assessment.match(/\bEMA\s*20\b.*?:?\s*(\d+\.?\d*)/i)?.[1] || "0") : 0} name="EMA 20" stroke="#FF007F" strokeWidth={1} strokeDasharray="5 5" dot={false} />
+                                <Line type="monotone" dataKey={() => report.report.valuation_assessment ? parseFloat(report.report.valuation_assessment.match(/\bEMA\s*50\b.*?:?\s*(\d+\.?\d*)/i)?.[1] || "0") : 0} name="EMA 50" stroke="#FFD700" strokeWidth={1} strokeDasharray="5 5" dot={false} />
+                              </>
+                            )}
+                          </LineChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Sentiment Over Time Chart */}
+                  <div className="bg-slate-50 dark:bg-[#0B0F19]/40 border border-slate-200 dark:border-[#1E2538] p-5 rounded-xl">
+                    <h4 className="text-xs font-black text-blue-600 dark:text-[#00E5FF] uppercase tracking-wider mb-4">News Sentiment Trend</h4>
+                    <div className="h-64 w-full text-[10px]">
+                      {articles.length === 0 ? (
+                        <div className="h-full flex items-center justify-center font-bold text-slate-400">No article sentiment records available.</div>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={Object.values(
+                              articles.reduce((acc, curr) => {
+                                const date = curr.published_date || curr.fetched_at?.slice(0, 10) || "Recent";
+                                if (!acc[date]) acc[date] = { date, Positive: 0, Neutral: 0, Negative: 0 };
+                                if (curr.sentiment === "Positive") acc[date].Positive++;
+                                else if (curr.sentiment === "Negative") acc[date].Negative++;
+                                else acc[date].Neutral++;
+                                return acc;
+                              }, {} as Record<string, any>)
+                            ).slice(-10)} // Show last 10 days of news activity
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#2E3752" opacity={0.15} />
+                            <XAxis dataKey="date" stroke="#64748B" />
+                            <YAxis stroke="#64748B" />
+                            <Tooltip contentStyle={{ backgroundColor: '#0B0F19', borderColor: '#1E2538', color: '#fff' }} />
+                            <Legend />
+                            <Bar dataKey="Positive" stackId="a" fill="#10B981" />
+                            <Bar dataKey="Neutral" stackId="a" fill="#F59E0B" />
+                            <Bar dataKey="Negative" stackId="a" fill="#EF4444" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
 
             </div>
           </div>

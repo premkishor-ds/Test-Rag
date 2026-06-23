@@ -1,0 +1,33 @@
+# Python virtual environments and caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+
+# Databases and Vector Storage
+backend/data/stock_rag.db
+backend/data/qdrant_storage/
+*.db
+*.sqlite
+
+# Next.js build directories and dependencies
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+
+# Environment configurations
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# OS system files
+.DS_Store
+Thumbs.db

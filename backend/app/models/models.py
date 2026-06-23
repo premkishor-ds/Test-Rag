@@ -75,6 +75,7 @@ class Stock(Base):
     order_book_updates = relationship("OrderBookUpdate", back_populates="stock", cascade="all, delete-orphan")
     news = relationship("News", back_populates="stock", cascade="all, delete-orphan")
     analysis_reports = relationship("AnalysisReport", back_populates="stock", cascade="all, delete-orphan")
+    price_history = relationship("StockPriceHistory", back_populates="stock", cascade="all, delete-orphan")
 
 class AnnualReport(Base):
     __tablename__ = "annual_reports"
@@ -142,6 +143,17 @@ class FinancialMetric(Base):
     order_book = Column(Float)      # Order book size in Cr
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
+    # Expanded fundamental fields
+    capex = Column(Float, nullable=True)
+    free_cash_flow = Column(Float, nullable=True)
+    ebitda = Column(Float, nullable=True)
+    opm_pct = Column(Float, nullable=True)
+    npm_pct = Column(Float, nullable=True)
+    interest_coverage = Column(Float, nullable=True)
+    debtor_days = Column(Integer, nullable=True)
+    inventory_turnover = Column(Float, nullable=True)
+    promoter_pledged_pct = Column(Float, nullable=True)
+
     stock = relationship("Stock", back_populates="financial_metrics")
 
 class ValuationMetric(Base):
@@ -171,6 +183,13 @@ class TechnicalIndicator(Base):
     relative_strength = Column(Float)
     trend_strength = Column(String(50))  # Bullish, Bearish, Neutral
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    # Expanded technical fields
+    ema_20 = Column(Float, nullable=True)
+    ema_50 = Column(Float, nullable=True)
+    ema_200 = Column(Float, nullable=True)
+    beta = Column(Float, nullable=True)
+    avg_volume_20d = Column(Float, nullable=True)
 
     stock = relationship("Stock", back_populates="technical_indicators")
 
@@ -292,3 +311,16 @@ class ChatMessage(Base):
     meta_json = Column(Text, nullable=True) # stores sources, scores, or tables
 
     conversation = relationship("Conversation", back_populates="messages")
+
+class StockPriceHistory(Base):
+    __tablename__ = "stock_price_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    stock_symbol = Column(String(20), ForeignKey("stocks.symbol", ondelete="CASCADE"), nullable=False)
+    date = Column(DateTime, nullable=False)
+    close_price = Column(Float, nullable=False)
+    volume = Column(Float, nullable=True)
+
+    __table_args__ = (UniqueConstraint('stock_symbol', 'date', name='_stock_date_uc'),)
+
+    stock = relationship("Stock", back_populates="price_history")

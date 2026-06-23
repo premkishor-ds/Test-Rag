@@ -61,6 +61,15 @@ class FinancialMetricBase(BaseModel):
     fii_holding: Optional[float] = None
     dii_holding: Optional[float] = None
     order_book: Optional[float] = None
+    capex: Optional[float] = None
+    free_cash_flow: Optional[float] = None
+    ebitda: Optional[float] = None
+    opm_pct: Optional[float] = None
+    npm_pct: Optional[float] = None
+    interest_coverage: Optional[float] = None
+    debtor_days: Optional[int] = None
+    inventory_turnover: Optional[float] = None
+    promoter_pledged_pct: Optional[float] = None
 
 class FinancialMetricCreate(FinancialMetricBase):
     pass
@@ -101,6 +110,11 @@ class TechnicalIndicatorBase(BaseModel):
     volume_breakout: Optional[bool] = False
     relative_strength: Optional[float] = None
     trend_strength: Optional[str] = None
+    ema_20: Optional[float] = None
+    ema_50: Optional[float] = None
+    ema_200: Optional[float] = None
+    beta: Optional[float] = None
+    avg_volume_20d: Optional[float] = None
 
 class TechnicalIndicatorCreate(TechnicalIndicatorBase):
     pass
@@ -255,6 +269,16 @@ class ConversationResponse(BaseModel):
     title: str
     created_at: datetime
     updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class StockPriceHistoryResponse(BaseModel):
+    id: int
+    stock_symbol: str
+    date: datetime
+    close_price: float
+    volume: Optional[float] = None
 
     class Config:
         from_attributes = True

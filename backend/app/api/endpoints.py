@@ -10,7 +10,7 @@ from app.schemas.schemas import (
     ScreenerFilterRequest, BacktestRequest, BacktestResponse,
     WatchlistCreate, WatchlistResponse, WatchlistItemCreate, WatchlistItemResponse,
     RagQueryRequest, RagQueryResponse, AnalysisReportResponse, NewsResponse,
-    StockChatRequest, StockChatResponse, ConversationResponse, ChatMessageResponse
+    StockChatRequest, StockChatResponse, ConversationResponse, ChatMessageResponse, StockPriceHistoryResponse
 )
 from app.services.rag import RagService
 from app.services.analysis import AnalysisService
@@ -426,3 +426,13 @@ def stock_chat_stream(request: StockChatRequest, db: Session = Depends(get_db)):
             generator_db.close()
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+# 11. Price History
+from app.models.models import StockPriceHistory
+@router.get("/stock/{symbol}/price-history", response_model=List[StockPriceHistoryResponse])
+def get_stock_price_history(symbol: str, db: Session = Depends(get_db)):
+    """Retrieve daily historical closing prices and volumes for a stock."""
+    stock = db.query(Stock).filter(Stock.symbol == symbol.upper()).first()
+    if not stock:
+        raise HTTPException(status_code=404, detail="Stock not found")
+    return db.query(StockPriceHistory).filter(StockPriceHistory.stock_symbol == symbol.upper()).order_by(StockPriceHistory.date.asc()).all()

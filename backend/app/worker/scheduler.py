@@ -192,7 +192,7 @@ class MonthlyScheduler:
     def _ensure_stock_metrics(self, db):
         """Populate missing financial/valuation/technical metrics for all stocks."""
         import random
-        from app.models.models import Stock, FinancialMetric, ValuationMetric, TechnicalIndicator
+        from app.models.models import Stock, FinancialMetric, ValuationMetric, TechnicalIndicator, StockPriceHistory
         stocks = db.query(Stock).all()
         for s in stocks:
             # Try fetching real data from Yahoo Finance
@@ -201,6 +201,24 @@ class MonthlyScheduler:
 
             # Seed random generator for consistent mock fallback
             random.seed(hash(s.symbol))
+
+            # Store daily closures in StockPriceHistory
+            if has_yf and yf.get("history_prices"):
+                try:
+                    # Clean up existing price history to avoid duplicate constraints on refresh
+                    db.query(StockPriceHistory).filter(StockPriceHistory.stock_symbol == s.symbol).delete()
+                    
+                    # Insert history prices
+                    for hp in yf["history_prices"]:
+                        price_entry = StockPriceHistory(
+                            stock_symbol=s.symbol,
+                            date=hp["date"],
+                            close_price=hp["close"],
+                            volume=hp["volume"]
+                        )
+                        db.add(price_entry)
+                except Exception as e:
+                    logger.error(f"Error saving price history for {s.symbol}: {e}")
 
             # Financial metrics
             fm = db.query(FinancialMetric).filter(FinancialMetric.stock_symbol == s.symbol).first()
@@ -220,7 +238,16 @@ class MonthlyScheduler:
                         promoter_holding=round(random.uniform(40.0, 75.0), 2),
                         fii_holding=round(random.uniform(1.0, 25.0), 2),
                         dii_holding=round(random.uniform(1.0, 25.0), 2),
-                        order_book=round(yf["revenue"] * random.uniform(0.1, 2.0), 2)
+                        order_book=round(yf["revenue"] * random.uniform(0.1, 2.0), 2),
+                        capex=yf["capex"],
+                        free_cash_flow=yf["free_cash_flow"],
+                        ebitda=yf["ebitda"],
+                        opm_pct=yf["opm_pct"],
+                        npm_pct=yf["npm_pct"],
+                        interest_coverage=yf["interest_coverage"],
+                        debtor_days=yf["debtor_days"],
+                        inventory_turnover=yf["inventory_turnover"],
+                        promoter_pledged_pct=yf["promoter_pledged_pct"]
                     )
                 else:
                     rev = random.uniform(100.0, 6000.0)
@@ -241,9 +268,29 @@ class MonthlyScheduler:
                         promoter_holding=round(random.uniform(30.0, 75.0), 2),
                         fii_holding=round(random.uniform(1.0, 26.0), 2),
                         dii_holding=round(random.uniform(1.0, 26.0), 2),
-                        order_book=round(rev * random.uniform(0.1, 2.8), 2)
+                        order_book=round(rev * random.uniform(0.1, 2.8), 2),
+                        capex=round(rev * 0.05, 2),
+                        free_cash_flow=round(net_profit * 0.4, 2),
+                        ebitda=round(rev * 0.15, 2),
+                        opm_pct=15.0,
+                        npm_pct=10.0,
+                        interest_coverage=6.0,
+                        debtor_days=45,
+                        inventory_turnover=8.0,
+                        promoter_pledged_pct=0.0
                     )
                 db.add(fm)
+            elif has_yf:
+                # Update existing metrics with new fundamental data
+                fm.capex = yf["capex"]
+                fm.free_cash_flow = yf["free_cash_flow"]
+                fm.ebitda = yf["ebitda"]
+                fm.opm_pct = yf["opm_pct"]
+                fm.npm_pct = yf["npm_pct"]
+                fm.interest_coverage = yf["interest_coverage"]
+                fm.debtor_days = yf["debtor_days"]
+                fm.inventory_turnover = yf["inventory_turnover"]
+                fm.promoter_pledged_pct = yf["promoter_pledged_pct"]
 
             # Valuation metrics
             vm = db.query(ValuationMetric).filter(ValuationMetric.stock_symbol == s.symbol).first()
@@ -281,9 +328,21 @@ class MonthlyScheduler:
                     sma_200=round(base_val * random.uniform(0.8, 1.1), 2),
                     volume_breakout=random.choice([True, False]),
                     relative_strength=round(random.uniform(0.6, 2.2), 2),
-                    trend_strength=random.choice(["Bullish", "Bearish", "Neutral"])
+                    trend_strength=random.choice(["Bullish", "Bearish", "Neutral"]),
+                    ema_20=yf["ema_20"] if has_yf else base_val,
+                    ema_50=yf["ema_50"] if has_yf else base_val,
+                    ema_200=yf["ema_200"] if has_yf else base_val,
+                    avg_volume_20d=yf["avg_volume_20d"] if has_yf else 50000.0,
+                    beta=yf["beta"] if has_yf else 1.0
                 )
                 db.add(ti)
+            elif has_yf:
+                # Update existing metrics with new technical data
+                ti.ema_20 = yf["ema_20"]
+                ti.ema_50 = yf["ema_50"]
+                ti.ema_200 = yf["ema_200"]
+                ti.avg_volume_20d = yf["avg_volume_20d"]
+                ti.beta = yf["beta"]
         db.commit()
 
 def run_scheduler_loop():

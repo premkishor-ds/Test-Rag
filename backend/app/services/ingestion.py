@@ -90,6 +90,129 @@ def fetch_stock_data_from_yahoo(symbol: str) -> dict:
         fifty_high = info.get("fiftyTwoWeekHigh") or (current_price * 1.2)
         fifty_low = info.get("fiftyTwoWeekLow") or (current_price * 0.8)
         
+        # 1. Fetch cash flow, balance sheet and financials statements
+        cashflow = ticker.cashflow
+        balance_sheet = ticker.balance_sheet
+        financials = ticker.financials
+        
+        # 2. Extract Capex
+        capex = 0.0
+        try:
+            if not cashflow.empty:
+                for label in ["Capital Expenditure", "Capital Expenditures", "Net PPE Purchase And Sale"]:
+                    if label in cashflow.index:
+                        capex = abs(float(cashflow.loc[label].iloc[0]))
+                        break
+        except Exception as e:
+            logger.warning(f"Error fetching capex: {e}")
+        capex = round(capex / 10000000.0, 2)
+        
+        # 3. Calculate Free Cash Flow (FCF = CFO - Capex)
+        fcf = 0.0
+        try:
+            if info.get("freeCashflow"):
+                fcf = round(info.get("freeCashflow") / 10000000.0, 2)
+            else:
+                fcf = round(cash_flow - capex, 2)
+        except Exception:
+            fcf = round(cash_flow - capex, 2)
+            
+        # 4. Extract EBITDA
+        ebitda = 0.0
+        try:
+            if info.get("ebitda"):
+                ebitda = round(info.get("ebitda") / 10000000.0, 2)
+            elif not financials.empty:
+                for label in ["EBITDA", "Normalized EBITDA"]:
+                    if label in financials.index:
+                        ebitda = round(abs(float(financials.loc[label].iloc[0])) / 10000000.0, 2)
+                        break
+        except Exception:
+            pass
+        if ebitda == 0.0:
+            ebitda = round(revenue * 0.15, 2) # fallback 15% margin
+            
+        opm_pct = round((ebitda / revenue) * 100, 2) if revenue > 0 else 0.0
+        npm_pct = round((net_profit / revenue) * 100, 2) if revenue > 0 else 0.0
+        
+        # 5. Extract Interest Coverage
+        interest_coverage = 5.0
+        try:
+            ebit = None
+            if not financials.empty:
+                for label in ["EBIT", "Operating Income"]:
+                    if label in financials.index:
+                        ebit = float(financials.loc[label].iloc[0])
+                        break
+                interest_expense = None
+                for label in ["Interest Expense", "Interest Expense On Debt"]:
+                    if label in financials.index:
+                        interest_expense = abs(float(financials.loc[label].iloc[0]))
+                        break
+                if ebit and interest_expense and interest_expense > 0:
+                    interest_coverage = round(ebit / interest_expense, 2)
+        except Exception:
+            pass
+            
+        # 6. Extract Working Capital Cycles (Debtor days & Inventory turnover)
+        debtor_days = 45
+        inventory_turnover = 6.0
+        try:
+            if not balance_sheet.empty:
+                receivables = None
+                for label in ["Receivables", "Net Receivables", "Accounts Receivable"]:
+                    if label in balance_sheet.index:
+                        receivables = abs(float(balance_sheet.loc[label].iloc[0]))
+                        break
+                inventory = None
+                for label in ["Inventory", "Net Inventory"]:
+                    if label in balance_sheet.index:
+                        inventory = abs(float(balance_sheet.loc[label].iloc[0]))
+                        break
+                if receivables and revenue > 0:
+                    receivables_cr = receivables / 10000000.0
+                    debtor_days = int((receivables_cr / revenue) * 365)
+                if inventory and inventory > 0:
+                    inventory_cr = inventory / 10000000.0
+                    cogs = revenue * 0.7
+                    inventory_turnover = round(cogs / inventory_cr, 2)
+        except Exception:
+            pass
+            
+        # 7. Extract promoter pledge %
+        promoter_pledged = 0.0
+        try:
+            pledge = info.get("pledgedPercent")
+            if pledge:
+                promoter_pledged = round(pledge * 100, 2)
+        except Exception:
+            pass
+            
+        # 8. Fetch Technicals (EMAs, Beta and daily historical closures)
+        hist = ticker.history(period="1y")
+        ema_20 = current_price
+        ema_50 = current_price
+        ema_200 = current_price
+        avg_volume_20d = info.get("averageVolume") or 50000.0
+        beta = info.get("beta") or 1.0
+        
+        history_prices = []
+        if not hist.empty:
+            try:
+                ema_20 = round(float(hist['Close'].ewm(span=20, adjust=False).mean().iloc[-1]), 2)
+                ema_50 = round(float(hist['Close'].ewm(span=50, adjust=False).mean().iloc[-1]), 2)
+                ema_200 = round(float(hist['Close'].ewm(span=200, adjust=False).mean().iloc[-1]), 2)
+                avg_volume_20d = round(float(hist['Volume'].tail(20).mean()), 2)
+            except Exception:
+                pass
+                
+            for date_val, row in hist.iterrows():
+                history_prices.append({
+                    "date": date_val.to_pydatetime(),
+                    "close": round(float(row['Close']), 2),
+                    "volume": float(row['Volume']) if 'Volume' in row else 0.0
+                })
+        
         return {
             "name": name,
             "sector": sector,
@@ -107,8 +230,26 @@ def fetch_stock_data_from_yahoo(symbol: str) -> dict:
             "net_profit": net_profit,
             "fifty_two_week_high": round(fifty_high, 2),
             "fifty_two_week_low": round(fifty_low, 2),
-            "current_price": current_price
+            "current_price": current_price,
+            "capex": capex,
+            "free_cash_flow": fcf,
+            "ebitda": ebitda,
+            "opm_pct": opm_pct,
+            "npm_pct": npm_pct,
+            "interest_coverage": interest_coverage,
+            "debtor_days": debtor_days,
+            "inventory_turnover": inventory_turnover,
+            "promoter_pledged_pct": promoter_pledged,
+            "ema_20": ema_20,
+            "ema_50": ema_50,
+            "ema_200": ema_200,
+            "avg_volume_20d": avg_volume_20d,
+            "beta": beta,
+            "history_prices": history_prices
         }
+    except Exception as e:
+        logger.error(f"Error fetching data from Yahoo Finance for {symbol}: {e}")
+        return {}
     except Exception as e:
         logger.error(f"Error fetching data from Yahoo Finance for {symbol}: {e}")
         return {}

@@ -1,0 +1,49 @@
+# Equity.AI RAG Platform
+
+Enterprise-grade stock market research, quantitative analysis, and local PDF retrieval engine driven by local LLMs (Qwen2.5 & Nomic-Embed).
+
+## Tech Stack & Architecture
+
+- **Frontend**: Next.js (React), TypeScript, Tailwind CSS, Lucide Icons. (Runs on port `3000`)
+- **Backend**: FastAPI (Python), SQLAlchemy, SQLite (`backend/data/stock_rag.db`). (Runs on port `8000`)
+- **Vector Database**: Qdrant running in embedded mode at `backend/data/qdrant_storage/`.
+- **AI Models**: Remote Ollama server hosting `qwen2.5:14b` for text generation and `nomic-embed-text` for embeddings.
+
+## Core Features
+
+- **RAG Chat**: Semantic hybrid query searches over vectorized PDF annual reports, quarterly filings, and scraped news.
+- **Quantitative Screener**: Standard financial ratios filter engine.
+- **Modern Portfolio Theory (MPT)**: Efficient Frontier weights optimization.
+- **yFinance Sync**: Dynamic metrics updates and historical closure schedules.
+- **Admin Console**: Gateway at `/admin` to trigger database purges, scrape commands, and overwrite parameters.
+
+## System Route Map (Frontend Pages)
+
+- [Dashboard](/) - Main commanding landing page. Displays live portfolio Net Worth aggregates, active node status indicators, stock monitored listing tables, and recent news feeds.
+- [RAG Chat](/chat) - AI Copilot search console. Submit natural language questions to query PDF reports and crawled news using hybrid retrieval vectors.
+- [Analysis Node](/analysis) - Detailed financial metrics view. Pulls real-time quarterly results, revenue growth metrics, capital structures, and visualizes price charts.
+- [Compare Node](/compare) - Side-by-side stock analysis. Select two assets to compare profitability, valuations, and moving averages.
+- [Screener](/screener) - Multi-metric filter workspace. Custom filters for ROE, debt-to-equity ratios, market cap thresholds, and active volume breakouts.
+- [Strategy Backtester](/backtest) - Algorithmic backtest engine to run test runs over historical stock closures.
+- [Alert Settings](/alerts) - Threshold alarm manager for setting price thresholds, RSI limits, and sentiment warning indicators.
+- [Portfolio Dashboard](/portfolio) - Positions weight allocations manager with integrated Sharpe ratio optimization metrics.
+- [Admin Control Console](/admin) - Secure admin dashboard for SQLite rebuilds, RSS feed crawls, parameter overwrites, and audit logs.
+
+## Core API Endpoints
+
+- `GET /api/v1/stocks`: List tracked stocks.
+- `GET /api/v1/stock/{symbol}`: Retrieve specific stock info, valuation indices, and technical status.
+- `POST /api/v1/rag-query`: Submit natural language queries over report contexts.
+- `POST /api/v1/screener`: Run filters on assets.
+- `GET /api/v1/portfolio/optimize`: Run MPT optimizer on comma-separated tickers.
+- `PUT /api/v1/admin/stock/{symbol}/metrics`: Overwrite local parameters.
+- `POST /api/v1/admin/actions/rebuild-db`: Purge vector database and rebuild collections.
+- `POST /api/v1/admin/actions/scrape-all`: Trigger RSS/Moneycontrol news scrapers.
+- `GET /api/v1/audit-logs`: View system operations history logs.
+
+## Setup & Running
+
+1. Copy `backend/.envcopy` to `backend/.env`
+2. Create virtual environment in `backend/` and install `requirements.txt`.
+3. In `frontend/` run `npm install`.
+4. From root folder run `python run_project.py` to start both servers.

@@ -11,22 +11,83 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "EQUITY.AI | Premium Stock Market RAG",
-  description: "Enterprise stock research and local intelligence platform.",
+  title: "EQUITY.AI | Premium Stock Market RAG & AI Intelligence",
+  description: "Enterprise-grade stock market research, quantitative filters, and local PDF retrieval engine driven by local LLMs (Qwen2.5 & Nomic-Embed). Optimized for asset allocation, modern portfolio analytics, and financial RAG query resolutions.",
+  keywords: [
+    "Stock Market RAG", 
+    "Equity AI", 
+    "Financial LLMs", 
+    "Modern Portfolio Theory optimization", 
+    "Quantitative screener", 
+    "Financial statement RAG search", 
+    "Stock intelligence command center", 
+    "Asset allocation analyzer"
+  ],
+  authors: [{ name: "Equity.AI Core Architect" }],
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://equity-ai-rag.local",
+    title: "EQUITY.AI | Stock RAG & AI Intelligence Command Center",
+    description: "Connect quantitative filters with local reports using local LLMs. Track net value and backtest models.",
+    siteName: "Equity.AI Platform",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "EQUITY.AI | Stock RAG & AI Intelligence",
+    description: "Enterprise-grade stock market research and local PDF retrieval engine.",
+  },
 };
 
 import Sidebar from "./Sidebar";
 import NotificationBell from "./components/NotificationBell";
-
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Structured JSON-LD Data for Generative Engine Optimization (GEO) & SEO
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Equity.AI RAG Platform",
+    "operatingSystem": "All Platforms",
+    "applicationCategory": "FinanceApplication",
+    "description": "High-fidelity local intelligence and financial RAG platform designed for quantitative screens, stock comparison, and portfolio optimization via Modern Portfolio Theory.",
+    "offers": {
+      "@type": "Offer",
+      "price": "0.00",
+      "priceCurrency": "USD"
+    },
+    "featureList": [
+      "Natural Language stock database querying via RAG Chat",
+      "Quantitative metric filter screener",
+      "MPT portfolio optimization and Sharpe weighing",
+      "Yahoo Finance ticker price and metric synchronization",
+      "Audit trail operations center"
+    ]
+  };
+
   return (
     <html lang="en" className={`${outfit.variable}`} suppressHydrationWarning>
       <head>
+        {/* Structured Data for Generative Engine Discovery */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         {/* FOUC Prevention script for theme class loading */}
         <script
           dangerouslySetInnerHTML={{

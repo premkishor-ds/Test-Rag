@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { TrendingUp, Cpu, HeartPulse, RefreshCw, BarChart2, Layers, Briefcase, Plus, Search, MessageSquare, Newspaper } from "lucide-react";
+import { 
+  TrendingUp, Cpu, HeartPulse, RefreshCw, BarChart2, Layers, Briefcase, 
+  Search, MessageSquare, Newspaper, ArrowUpRight, Activity, PieChart 
+} from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -35,11 +38,10 @@ export default function Dashboard() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [news, setNews] = useState<NewsItem[]>([]);
   const [health, setHealth] = useState<Health | null>(null);
-  const [portfolio, setPortfolio] = useState<any>({ total_value: 0, pnl: 0, pnl_pct: 0 });
+  const [portfolio, setPortfolio] = useState<any>({ total_value: 0, pnl: 0, pnl_pct: 0, weights: {} });
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
   const [searchVal, setSearchVal] = useState("");
 
   const fetchData = async () => {
@@ -58,7 +60,6 @@ export default function Dashboard() {
         setPortfolio(await portRes.json());
       }
 
-      // Fetch top 5 recent articles
       const newsRes = await fetch(`${API_URL}/api/v1/news?limit=5`);
       if (newsRes.ok) {
         setNews(await newsRes.json());
@@ -82,124 +83,73 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="space-y-8 dark:text-white">
-      {/* Welcome Hero / Command Panel */}
-      <div className="relative rounded-2xl overflow-hidden bg-white border border-slate-200 dark:bg-[#0E121E]/60 dark:border-[#1E2538] p-8 sm:p-10 shadow-md dark:shadow-2xl transition-colors duration-200">
-        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-blue-500/5 dark:bg-[#00E5FF]/5 rounded-full blur-[100px] -z-10"></div>
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-indigo-500/5 dark:bg-[#00F5D4]/5 rounded-full blur-[100px] -z-10"></div>
-        
-        <div className="max-w-4xl space-y-5">
-          <div className="inline-flex items-center space-x-2 bg-blue-600/10 text-blue-600 dark:bg-[#00E5FF]/10 dark:text-[#00E5FF] text-xs font-bold tracking-widest px-3 py-1 rounded-full border border-blue-600/20 dark:border-[#00E5FF]/20 uppercase">
-            <TrendingUp className="h-3 w-3" />
-            <span>Equity Wealth Command Center</span>
+    <div className="space-y-6 text-slate-300">
+      
+      {/* Upper Control Bar / Command Summary */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between bg-white border border-slate-200 dark:bg-[#1E1E1E] dark:border-[#2D2D2D] p-6 rounded-xl gap-4 transition-all">
+        <div>
+          <div className="flex items-center space-x-2 text-blue-500">
+            <Activity className="h-4 w-4 animate-pulse" />
+            <span className="text-xs font-black uppercase tracking-widest">Equity.AI Mainframe</span>
           </div>
-
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-slate-900 dark:text-white leading-none">
-            All-In-One <span className="bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-[#00E5FF] dark:to-[#00F5D4] bg-clip-text text-transparent">Stock Intelligence</span> Hub
-          </h1>
-          
-          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl font-semibold">
-            One workspace for your portfolio tracking, quantitative metrics screening, yFinance analysis, and local document RAG.
-          </p>
-
-          <div className="flex flex-wrap gap-3 pt-2">
-            <Link 
-              href="/portfolio" 
-              className="px-5 py-3 rounded-lg font-bold text-white dark:text-[#080A10] bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-[#00E5FF] dark:to-[#00F5D4] hover:opacity-90 active:scale-95 transition-all shadow-md hover:shadow-lg dark:shadow-none text-xs tracking-wider uppercase"
-            >
-              Analyze My Holdings
-            </Link>
-            <Link 
-              href="/chat" 
-              className="px-5 py-3 rounded-lg font-bold border border-slate-200 bg-white hover:bg-slate-50 dark:border-[#1E2538] dark:bg-[#0E121E]/60 dark:hover:bg-[#0E121E] dark:hover:border-[#2D3753] text-slate-700 dark:text-slate-200 transition-all text-xs tracking-wider uppercase active:scale-95 shadow-sm"
-            >
-              Ask AI Assistant
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Grid of Key Performance Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Portfolio Net Worth */}
-        <div className="p-5 rounded-xl bg-white border border-slate-200 dark:bg-[#0E121E]/80 dark:border-[#1E2538] flex items-center space-x-4 shadow-sm transition-colors duration-200">
-          <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-500 shadow-inner">
-            <Briefcase className="h-5.5 w-5.5" />
-          </div>
-          <div>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Portfolio Net Value</p>
-            <h3 className="text-xl font-black text-slate-950 dark:text-white mt-1">
-              Rs. {portfolio.total_value?.toLocaleString()}
-            </h3>
-          </div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight mt-1">Intelligence Command</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-xs mt-0.5 uppercase tracking-wide">Enterprise analytics workspace: quantitative indicators, portfolio sync, and local documents RAG.</p>
         </div>
 
-        {/* Portfolio Returns */}
-        <div className="p-5 rounded-xl bg-white border border-slate-200 dark:bg-[#0E121E]/80 dark:border-[#1E2538] flex items-center space-x-4 shadow-sm transition-colors duration-200">
-          <div className={`p-3 rounded-xl shadow-inner ${portfolio.pnl >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-            <TrendingUp className="h-5.5 w-5.5" />
+        {/* Global Node KPI summary */}
+        <div className="flex flex-wrap items-center gap-6 text-[10px] uppercase font-bold tracking-widest text-slate-500 dark:text-slate-400 border-t lg:border-t-0 lg:border-l border-slate-200 dark:border-[#2D2D2D] pt-4 lg:pt-0 lg:pl-6">
+          <div className="space-y-0.5">
+            <span className="text-slate-400 dark:text-slate-500">Active Holdings</span>
+            <div className="text-slate-900 dark:text-white font-mono flex items-center space-x-1">
+              <Briefcase className="h-3 w-3 text-blue-500" />
+              <span>Rs. {portfolio.total_value?.toLocaleString()}</span>
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Total Return</p>
-            <h3 className={`text-xl font-black mt-1 ${portfolio.pnl >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+          <div className="space-y-0.5">
+            <span className="text-slate-400 dark:text-slate-500">Total Return</span>
+            <div className={`font-mono ${portfolio.pnl >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
               {portfolio.pnl_pct >= 0 ? "+" : ""}{portfolio.pnl_pct?.toFixed(2)}%
-            </h3>
+            </div>
           </div>
-        </div>
-
-        {/* Monitored Stocks Card */}
-        <div className="p-5 rounded-xl bg-white border border-slate-200 dark:bg-[#0E121E]/80 dark:border-[#1E2538] flex items-center space-x-4 shadow-sm transition-colors duration-200">
-          <div className="p-3 bg-blue-600/10 dark:bg-[#00E5FF]/10 rounded-xl text-blue-600 dark:text-[#00E5FF] shadow-inner">
-            <Layers className="h-5.5 w-5.5" />
+          <div className="space-y-0.5">
+            <span className="text-slate-400 dark:text-slate-500">Listed Tickers</span>
+            <div className="text-slate-900 dark:text-white font-mono">{loading ? "..." : stocks.length} stocks</div>
           </div>
-          <div>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Monitored Stocks</p>
-            <h3 className="text-xl font-black text-slate-950 dark:text-white mt-1">
-              {loading ? "..." : stocks.length}
-            </h3>
-          </div>
-        </div>
-
-        {/* System Health Card */}
-        <div className="p-5 rounded-xl bg-white border border-slate-200 dark:bg-[#0E121E]/80 dark:border-[#1E2538] flex items-center space-x-4 shadow-sm transition-colors duration-200">
-          <div className={`p-3 rounded-xl shadow-inner ${health?.status === 'online' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
-            <HeartPulse className="h-5.5 w-5.5" />
-          </div>
-          <div>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">AI Node Status</p>
-            <h3 className="text-sm font-black text-slate-950 dark:text-white mt-1 flex items-center space-x-1.5">
-              <span className={`h-2 w-2 rounded-full ${health?.status === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
-              <span className="capitalize">{health?.status || "Degraded"}</span>
-            </h3>
+          <div className="space-y-0.5">
+            <span className="text-slate-400 dark:text-slate-500">AI Engine</span>
+            <div className="flex items-center space-x-1.5 text-emerald-500">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Online</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Main Command Center Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Main split grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Watchlist Section */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 dark:bg-[#0E121E]/80 dark:border-[#1E2538] rounded-xl p-6 shadow-sm relative transition-colors duration-200">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-base font-bold text-slate-950 dark:text-white tracking-wide flex items-center space-x-2">
-              <BarChart2 className="h-5 w-5 text-blue-600 dark:text-[#00E5FF]" />
-              <span>Monitored Watchlist</span>
+        {/* Left Side: Monitored Stocks Watchlist */}
+        <div className="lg:col-span-2 bg-white border border-slate-200 dark:bg-[#1E1E1E] dark:border-[#2D2D2D] rounded-xl overflow-hidden shadow-sm">
+          <div className="px-6 py-4 border-b border-slate-200 dark:border-[#2D2D2D] flex items-center justify-between">
+            <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center space-x-2">
+              <BarChart2 className="h-4 w-4 text-blue-500" />
+              <span>Monitored Intelligence List</span>
             </h2>
             <div className="flex items-center space-x-3">
               <div className="relative">
-                <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 <input
                   type="text"
                   placeholder="Filter stocks..."
                   value={searchVal}
                   onChange={(e) => setSearchVal(e.target.value)}
-                  className="pl-8 pr-2.5 py-1 text-xs border border-slate-200 dark:bg-[#0B0F19] dark:border-[#1E2538] rounded-lg focus:outline-none focus:border-blue-600"
+                  className="pl-8 pr-3 py-1.5 text-[11px] font-semibold bg-slate-50 dark:bg-[#161616] border border-slate-200 dark:border-[#2D2D2D] text-slate-900 dark:text-white rounded-lg focus:outline-none focus:border-blue-500 w-44 outline-none transition-colors"
                 />
               </div>
               <button 
                 onClick={fetchData} 
                 disabled={refreshing}
-                className="p-1.5 rounded-lg border border-slate-200 dark:border-[#1E2538] bg-slate-50 dark:bg-[#0E121E] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-all disabled:opacity-50"
+                className="p-1.5 border border-slate-200 dark:border-[#2D2D2D] bg-slate-50 dark:bg-[#161616] text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
@@ -207,41 +157,43 @@ export default function Dashboard() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse text-[11px] font-semibold">
               <thead>
-                <tr className="border-b border-slate-100 dark:border-[#1E2538] text-[9px] text-slate-450 font-bold uppercase tracking-wider">
-                  <th className="pb-3.5 px-3">Symbol</th>
-                  <th className="pb-3.5 px-3">Company</th>
-                  <th className="pb-3.5 px-3">Sector</th>
-                  <th className="pb-3.5 px-3">Market Cap</th>
-                  <th className="pb-3.5 px-3 text-right">Actions</th>
+                <tr className="bg-slate-50 dark:bg-[#161616]/40 text-slate-400 uppercase text-[9px] tracking-widest border-b border-slate-200 dark:border-[#2D2D2D]">
+                  <th className="px-6 py-3">Symbol</th>
+                  <th className="px-6 py-3">Company Profile</th>
+                  <th className="px-6 py-3">Sector</th>
+                  <th className="px-6 py-3">Capitalization</th>
+                  <th className="px-6 py-3 text-right">Research Terminal</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-[#1E2538]/40">
+              <tbody className="divide-y divide-slate-100 dark:divide-[#2D2D2D] text-slate-900 dark:text-slate-350">
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-xs text-slate-400 font-medium">Loading stock records...</td>
+                    <td colSpan={5} className="px-6 py-12 text-center text-xs text-slate-400">Loading dynamic database tickers...</td>
                   </tr>
                 ) : filteredStocks.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-xs text-slate-400 font-medium">
-                      No matching stocks found.
+                    <td colSpan={5} className="px-6 py-12 text-center text-xs text-slate-400">
+                      No matching assets found in listings database.
                     </td>
                   </tr>
                 ) : (
                   filteredStocks.map((stock) => (
-                    <tr key={stock.symbol} className="hover:bg-slate-50/50 dark:hover:bg-[#0E121E]/30 transition-colors text-xs font-semibold">
-                      <td className="py-4 px-3 font-bold text-slate-900 dark:text-white">{stock.symbol}</td>
-                      <td className="py-4 px-3 text-slate-500 dark:text-slate-300">{stock.name}</td>
-                      <td className="py-4 px-3 text-slate-400">{stock.sector || "N/A"}</td>
-                      <td className="py-4 px-3">Rs. {stock.market_cap ? `${stock.market_cap} Cr` : "N/A"}</td>
-                      <td className="py-4 px-3 text-right">
-                        <div className="flex items-center justify-end space-x-2.5">
-                          <Link href={`/analysis?symbol=${stock.symbol}`} className="px-2.5 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-[#00E5FF] dark:bg-[#00E5FF]/10 dark:hover:bg-[#00E5FF]/20 rounded-md text-[10px] uppercase font-black tracking-wide transition-all">
+                    <tr key={stock.symbol} className="hover:bg-slate-50/50 dark:hover:bg-[#252525]/30 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-900 dark:text-white">{stock.symbol}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-slate-500 dark:text-slate-400">{stock.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap font-mono text-slate-400">{stock.sector || "N/A"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap font-mono">
+                        {stock.market_cap ? `Rs. ${stock.market_cap.toLocaleString()} Cr` : "N/A"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="flex items-center justify-end space-x-2">
+                          <Link href={`/analysis?symbol=${stock.symbol}`} className="bg-blue-600/10 hover:bg-blue-600 hover:text-white border border-blue-500/20 text-blue-600 dark:text-[#00E5FF] dark:bg-[#00E5FF]/5 dark:border-[#00E5FF]/20 px-3 py-1 rounded text-[10px] font-black uppercase tracking-wider transition-all">
                             Research
                           </Link>
-                          <Link href={`/chat?symbol=${stock.symbol}`} className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-[#1E2538]/50 transition-colors">
-                            <MessageSquare className="h-4 w-4" />
+                          <Link href={`/chat?symbol=${stock.symbol}`} className="p-1.5 border border-slate-200 dark:border-[#2D2D2D] hover:border-blue-500 rounded text-slate-400 hover:text-blue-500 transition-colors">
+                            <MessageSquare className="h-3.5 w-3.5" />
                           </Link>
                         </div>
                       </td>
@@ -253,36 +205,68 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Intelligence feed column */}
+        {/* Right Side Column */}
         <div className="space-y-6 lg:col-span-1">
+          
+          {/* Quick Action Index Links */}
+          <div className="bg-white border border-slate-200 dark:bg-[#1E1E1E] dark:border-[#2D2D2D] p-5 rounded-xl space-y-4 font-semibold">
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center space-x-2">
+              <Cpu className="h-4 w-4 text-blue-500" />
+              <span>AI Command Launchers</span>
+            </h3>
+            <div className="flex flex-col space-y-2">
+              <Link href="/screener" className="w-full text-left px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-[#161616] dark:hover:bg-[#252525] border border-slate-200 dark:border-[#2D2D2D] rounded-lg transition-all flex items-center justify-between text-slate-700 dark:text-slate-300">
+                <div>
+                  <div className="text-[11px] uppercase font-black tracking-wider">Advanced Screener</div>
+                  <div className="text-[9px] text-slate-500 mt-0.5">Filter qualitative and technical stock features</div>
+                </div>
+                <ArrowUpRight className="h-4 w-4 text-slate-400" />
+              </Link>
+              <Link href="/backtest" className="w-full text-left px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-[#161616] dark:hover:bg-[#252525] border border-slate-200 dark:border-[#2D2D2D] rounded-lg transition-all flex items-center justify-between text-slate-700 dark:text-slate-300">
+                <div>
+                  <div className="text-[11px] uppercase font-black tracking-wider">Strategy Backtester</div>
+                  <div className="text-[9px] text-slate-500 mt-0.5">Verify algorithms and indicators over history</div>
+                </div>
+                <ArrowUpRight className="h-4 w-4 text-slate-400" />
+              </Link>
+              <Link href="/compare" className="w-full text-left px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-[#161616] dark:hover:bg-[#252525] border border-slate-200 dark:border-[#2D2D2D] rounded-lg transition-all flex items-center justify-between text-slate-700 dark:text-slate-300">
+                <div>
+                  <div className="text-[11px] uppercase font-black tracking-wider">Compare Node</div>
+                  <div className="text-[9px] text-slate-500 mt-0.5">Dual-profile side-by-side metric analytics</div>
+                </div>
+                <ArrowUpRight className="h-4 w-4 text-slate-400" />
+              </Link>
+            </div>
+          </div>
+
           {/* Live intelligence news */}
-          <div className="bg-white border border-slate-200 dark:bg-[#0E121E]/80 dark:border-[#1E2538] rounded-xl p-6 shadow-sm">
-            <h2 className="text-base font-bold text-slate-950 dark:text-white tracking-wide flex items-center space-x-2.5 mb-5">
-              <Newspaper className="h-5 w-5 text-indigo-500" />
+          <div className="bg-white border border-slate-200 dark:bg-[#1E1E1E] dark:border-[#2D2D2D] p-5 rounded-xl shadow-sm">
+            <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center space-x-2.5 mb-4">
+              <Newspaper className="h-4 w-4 text-indigo-500" />
               <span>Intelligence News Feed</span>
             </h2>
-            <div className="space-y-4">
+            <div className="space-y-3.5">
               {news.length === 0 ? (
-                <div className="py-10 text-center text-xs text-slate-400 font-bold">No intelligence feed synced yet.</div>
+                <div className="py-8 text-center text-xs text-slate-500 font-bold uppercase tracking-wider">No dynamic articles found.</div>
               ) : (
                 news.map((item) => {
                   const badgeColor = {
-                    "Positive": "bg-emerald-500/10 text-emerald-500",
-                    "Negative": "bg-red-500/10 text-red-500",
-                    "Neutral": "bg-slate-500/10 text-slate-400"
-                  }[item.sentiment] || "bg-slate-500/10 text-slate-400";
+                    "Positive": "bg-emerald-500/10 border-emerald-500/20 text-emerald-500 dark:text-emerald-400",
+                    "Negative": "bg-red-500/10 border-red-500/20 text-red-500 dark:text-red-400",
+                    "Neutral": "bg-slate-500/10 border-slate-500/20 text-slate-500 dark:text-slate-400"
+                  }[item.sentiment] || "bg-slate-500/10 border-slate-500/20 text-slate-500 dark:text-slate-400";
                   return (
-                    <div key={item.id} className="text-xs space-y-1.5 border-b border-slate-100 dark:border-[#1E2538]/30 pb-3 last:border-b-0 last:pb-0">
+                    <div key={item.id} className="text-xs space-y-1.5 border-b border-slate-100 dark:border-[#2D2D2D] pb-3 last:border-b-0 last:pb-0 font-semibold">
                       <div className="flex items-center justify-between">
                         <span className="font-extrabold text-blue-600 dark:text-[#00E5FF]">{item.stock_symbol}</span>
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${badgeColor}`}>
+                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase border tracking-wider ${badgeColor}`}>
                           {item.sentiment}
                         </span>
                       </div>
                       <h4 className="font-bold text-slate-800 dark:text-slate-200 hover:text-blue-500 transition-colors leading-relaxed">
                         {item.title}
                       </h4>
-                      <div className="text-[10px] text-slate-400 font-semibold">{item.source}</div>
+                      <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">{item.source}</div>
                     </div>
                   );
                 })

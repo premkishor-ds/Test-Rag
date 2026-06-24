@@ -270,3 +270,9 @@ class AnalysisService:
                 "promoter_holding": metrics.promoter_holding if metrics else None,
             }
         }
+
+    def get_latest_report(self, symbol: str) -> Optional[AnalysisReport]:
+        return self.db.query(AnalysisReport).filter(
+            AnalysisReport.stock_symbol == symbol.upper()
+        ).order_by(AnalysisReport.report_date.desc()).first()
+

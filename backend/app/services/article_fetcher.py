@@ -381,16 +381,39 @@ _NEG_WORDS = {
 
 
 def detect_sentiment(text: str) -> str:
-    """Keyword-based sentiment: Positive, Negative, Neutral."""
+    """Keyword-based sentiment with LLM fallback for neutral/ambiguous cases."""
     lower = text.lower()
     words = set(re.findall(r"\b\w+\b", lower))
     pos_count = len(words & _POS_WORDS)
     neg_count = len(words & _NEG_WORDS)
-    if pos_count > neg_count + 1:
+    
+    if pos_count > neg_count + 2:
         return "Positive"
-    elif neg_count > pos_count + 1:
+    elif neg_count > pos_count + 2:
+        return "Negative"
+        
+    # Ambiguous or neutral: Fallback to LLM
+    try:
+        from app.core.ollama import ollama_client
+        prompt = (
+            "Analyze the market/investment sentiment of the following financial text. "
+            "Respond with EXACTLY one of these three words: Positive, Negative, Neutral.\n\n"
+            f"Text: {text[:800]}\n\nSentiment:"
+        )
+        response = ollama_client.generate_completion(prompt, temperature=0.0).strip()
+        for choice in ["Positive", "Negative", "Neutral"]:
+            if choice.lower() in response.lower():
+                return choice
+    except Exception as e:
+        logger.debug(f"LLM sentiment fallback failed: {e}")
+        
+    # Final fallback if LLM failed
+    if pos_count > neg_count:
+        return "Positive"
+    elif neg_count > pos_count:
         return "Negative"
     return "Neutral"
+
 
 
 # ---------------------------------------------------------------------------

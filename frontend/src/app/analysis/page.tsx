@@ -78,6 +78,20 @@ interface StockPricePoint {
   volume: number;
 }
 
+const calculateEMA = (data: StockPricePoint[], period: number): number[] => {
+  if (data.length === 0) return [];
+  const k = 2 / (period + 1);
+  let emaArray: number[] = [];
+  let prevEma = data[0].close_price;
+  for (let i = 0; i < data.length; i++) {
+    const currentPrice = data[i].close_price;
+    const emaVal = i === 0 ? currentPrice : (currentPrice * k) + (prevEma * (1 - k));
+    emaArray.push(Number(emaVal.toFixed(2)));
+    prevEma = emaVal;
+  }
+  return emaArray;
+};
+
 export default function StockAnalysis() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState("");
@@ -496,23 +510,33 @@ export default function StockAnalysis() {
                       ) : priceHistory.length === 0 ? (
                         <div className="h-full flex items-center justify-center font-bold text-slate-400">No price history available.</div>
                       ) : (
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={priceHistory}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#2E3752" opacity={0.15} />
-                            <XAxis dataKey="date" stroke="#64748B" tickFormatter={(str) => str?.slice(5, 10)} />
-                            <YAxis stroke="#64748B" domain={['auto', 'auto']} />
-                            <Tooltip contentStyle={{ backgroundColor: '#0B0F19', borderColor: '#1E2538', color: '#fff' }} />
-                            <Legend />
-                            <Line type="monotone" dataKey="close_price" name="Close Price" stroke="#00E5FF" strokeWidth={2.5} dot={false} />
-                            {/* EMA indicator calculations */}
-                            {report.metrics && (
-                              <>
-                                <Line type="monotone" dataKey={() => report.report.valuation_assessment ? parseFloat(report.report.valuation_assessment.match(/\bEMA\s*20\b.*?:?\s*(\d+\.?\d*)/i)?.[1] || "0") : 0} name="EMA 20" stroke="#FF007F" strokeWidth={1} strokeDasharray="5 5" dot={false} />
-                                <Line type="monotone" dataKey={() => report.report.valuation_assessment ? parseFloat(report.report.valuation_assessment.match(/\bEMA\s*50\b.*?:?\s*(\d+\.?\d*)/i)?.[1] || "0") : 0} name="EMA 50" stroke="#FFD700" strokeWidth={1} strokeDasharray="5 5" dot={false} />
-                              </>
-                            )}
-                          </LineChart>
-                        </ResponsiveContainer>
+                        (() => {
+                          const ema20 = calculateEMA(priceHistory, 20);
+                          const ema50 = calculateEMA(priceHistory, 50);
+                          const ema200 = calculateEMA(priceHistory, 200);
+                          const chartPriceData = priceHistory.map((pt, idx) => ({
+                            ...pt,
+                            ema20: ema20[idx],
+                            ema50: ema50[idx],
+                            ema200: ema200[idx],
+                          }));
+
+                          return (
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={chartPriceData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#2E3752" opacity={0.15} />
+                                <XAxis dataKey="date" stroke="#64748B" tickFormatter={(str) => str?.slice(5, 10)} />
+                                <YAxis stroke="#64748B" domain={['auto', 'auto']} />
+                                <Tooltip contentStyle={{ backgroundColor: '#0B0F19', borderColor: '#1E2538', color: '#fff' }} />
+                                <Legend />
+                                <Line type="monotone" dataKey="close_price" name="Close Price" stroke="#00E5FF" strokeWidth={2.5} dot={false} />
+                                <Line type="monotone" dataKey="ema20" name="EMA 20" stroke="#FF007F" strokeWidth={1.2} strokeDasharray="5 5" dot={false} />
+                                <Line type="monotone" dataKey="ema50" name="EMA 50" stroke="#FFD700" strokeWidth={1.2} strokeDasharray="5 5" dot={false} />
+                                <Line type="monotone" dataKey="ema200" name="EMA 200" stroke="#10B981" strokeWidth={1.2} strokeDasharray="5 5" dot={false} />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          );
+                        })()
                       )}
                     </div>
                   </div>

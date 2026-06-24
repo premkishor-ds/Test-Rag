@@ -2,10 +2,30 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageSquare, BarChart2, ArrowLeftRight, Globe, AlertTriangle, Sparkles } from "lucide-react";
+import { useState, useEffect } from "react";
+import { MessageSquare, BarChart2, ArrowLeftRight, Globe, AlertTriangle, Sparkles, Briefcase, Lock } from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const checkLogin = () => {
+      const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+      setIsAdminLoggedIn(token === "admin-mock-token");
+    };
+
+    checkLogin();
+
+    // Listen for custom storage events or manual storage updates
+    window.addEventListener("storage", checkLogin);
+    const interval = setInterval(checkLogin, 500);
+
+    return () => {
+      window.removeEventListener("storage", checkLogin);
+      clearInterval(interval);
+    };
+  }, []);
 
   const links = [
     { name: "RAG Chat", href: "/chat", icon: MessageSquare },
@@ -13,7 +33,13 @@ export default function Sidebar() {
     { name: "Compare Node", href: "/compare", icon: ArrowLeftRight },
     { name: "Global Search", href: "/search", icon: Globe },
     { name: "Alert Settings", href: "/alerts", icon: AlertTriangle },
+    { name: "Portfolio", href: "/portfolio", icon: Briefcase },
+    { name: "Admin Panel", href: "/admin", icon: Lock },
   ];
+
+  if (pathname === "/admin" && !isAdminLoggedIn) {
+    return null;
+  }
 
   return (
     <div className="w-64 bg-[#090D1A] text-slate-300 border-r border-[#151D36] flex flex-col h-screen flex-shrink-0 select-none">

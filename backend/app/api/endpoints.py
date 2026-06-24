@@ -41,12 +41,15 @@ def get_financials(symbol: str, db: Session = Depends(get_db)):
     return db.query(FinancialMetric).filter(FinancialMetric.stock_symbol == symbol.upper()).all()
 
 # 3. News
+from app.models.models import StockArticle
+
 @router.get("/news", response_model=List[NewsResponse])
 def get_news(symbol: Optional[str] = None, db: Session = Depends(get_db)):
-    query = db.query(News)
+    query = db.query(StockArticle)
     if symbol:
-        query = query.filter(News.stock_symbol == symbol.upper())
+        query = query.filter(StockArticle.stock_symbol == symbol.upper())
     return query.all()
+
 
 # 4. Hybrid Search and RAG
 @router.post("/vector-search")
@@ -102,11 +105,12 @@ def run_screener(filters: ScreenerFilterRequest, db: Session = Depends(get_db)):
 
 # 7. Backtesting
 @router.post("/backtest", response_model=BacktestResponse)
-def run_backtest(request: BacktestRequest):
+def run_backtest(request: BacktestRequest, db: Session = Depends(get_db)):
     try:
-        return BacktestEngine.run_backtest(request)
+        return BacktestEngine.run_backtest(request, db)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # 8. Watchlists
 @router.post("/watchlist", response_model=WatchlistResponse)
@@ -576,24 +580,15 @@ def export_stock_report_pdf(symbol: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Please generate the AI Research report first on the Analysis page before exporting.")
         
     # Standard format match ReportResult schema
+    import json
+    report_data = json.loads(report_res.report_json) if report_res.report_json else {}
     report_dict = {
         "rating": report_res.rating,
         "score": report_res.score,
         "confidence_score": report_res.confidence_score,
-        "report": {
-            "business_overview": report_res.business_overview,
-            "revenue_analysis": report_res.revenue_analysis,
-            "profit_analysis": report_res.profit_analysis,
-            "cash_flow_analysis": report_res.cash_flow_analysis,
-            "management_commentary_summary": report_res.management_commentary_summary,
-            "opportunities": report_res.opportunities,
-            "risks": report_res.risks,
-            "bull_case": report_res.bull_case,
-            "bear_case": report_res.bear_case,
-            "final_investment_thesis": report_res.final_investment_thesis,
-            "valuation_assessment": report_res.valuation_assessment,
-        }
+        "report": report_data
     }
+
     
     pdf_buf = generate_pdf_report(stock_data, report_dict)
     return StreamingResponse(
@@ -760,6 +755,439 @@ async def upload_pdf(
         if os.path.exists(file_path):
             os.remove(file_path)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# 20. Portfolio Holdings Manager
+from pydantic import BaseModel, Field
+from app.models.models import UserHolding, StockPriceHistory
+
+class HoldingUpdate(BaseModel):
+    stock_symbol: str
+    shares: float = Field(..., ge=0)
+    average_buy_price: float = Field(..., ge=0)
+
+@router.get("/portfolio/holdings")
+def get_portfolio_holdings(db: Session = Depends(get_db)):
+    """Retrieve all user holdings and details."""
+    holdings = db.query(UserHolding).filter(UserHolding.user_id == 1).all()
+    result = []
+    for h in holdings:
+        # Get latest close price from history
+        latest_price_entry = db.query(StockPriceHistory).filter(
+            StockPriceHistory.stock_symbol == h.stock_symbol.upper()
+        ).order_by(StockPriceHistory.date.desc()).first()
+        current_price = latest_price_entry.close_price if latest_price_entry else h.average_buy_price
+        
+        cost = h.shares * h.average_buy_price
+        market_value = h.shares * current_price
+        pnl = market_value - cost
+        pnl_pct = (pnl / cost * 100) if cost > 0 else 0.0
+        
+        result.append({
+            "stock_symbol": h.stock_symbol,
+            "shares": h.shares,
+            "average_buy_price": h.average_buy_price,
+            "current_price": current_price,
+            "cost": round(cost, 2),
+            "market_value": round(market_value, 2),
+            "pnl": round(pnl, 2),
+            "pnl_pct": round(pnl_pct, 2)
+        })
+    return result
+
+@router.post("/portfolio/holdings")
+def update_portfolio_holding(req: HoldingUpdate, db: Session = Depends(get_db)):
+    """Add or update a stock position in the user's holdings."""
+    from app.models.models import PortfolioTransaction
+    
+    stock = db.query(Stock).filter(Stock.symbol == req.stock_symbol.upper()).first()
+    if not stock:
+        raise HTTPException(status_code=404, detail=f"Stock symbol {req.stock_symbol} not found in listing databases.")
+        
+    # Check if position already exists
+    holding = db.query(UserHolding).filter(
+        UserHolding.user_id == 1,
+        UserHolding.stock_symbol == req.stock_symbol.upper()
+    ).first()
+    
+    old_shares = holding.shares if holding else 0.0
+    
+    if req.shares == 0:
+        if holding:
+            # Clear position is a SELL of all old shares
+            tx = PortfolioTransaction(
+                user_id=1,
+                stock_symbol=req.stock_symbol.upper(),
+                transaction_type="SELL",
+                shares=old_shares,
+                price=holding.average_buy_price
+            )
+            db.add(tx)
+            db.delete(holding)
+            db.commit()
+            return {"status": "deleted", "message": f"Position in {req.stock_symbol} cleared."}
+        return {"status": "noop"}
+        
+    diff = req.shares - old_shares
+    if diff != 0:
+        tx_type = "BUY" if diff > 0 else "SELL"
+        tx = PortfolioTransaction(
+            user_id=1,
+            stock_symbol=req.stock_symbol.upper(),
+            transaction_type=tx_type,
+            shares=abs(diff),
+            price=req.average_buy_price
+        )
+        db.add(tx)
+
+    if not holding:
+        holding = UserHolding(
+            user_id=1,
+            stock_symbol=req.stock_symbol.upper(),
+            shares=req.shares,
+            average_buy_price=req.average_buy_price
+        )
+        db.add(holding)
+    else:
+        holding.shares = req.shares
+        holding.average_buy_price = req.average_buy_price
+        
+    db.commit()
+    return {"status": "success", "stock_symbol": holding.stock_symbol}
+
+
+@router.delete("/portfolio/holdings/{symbol}")
+def delete_portfolio_holding(symbol: str, db: Session = Depends(get_db)):
+    """Delete a stock position from the holdings entirely."""
+    holding = db.query(UserHolding).filter(
+        UserHolding.user_id == 1,
+        UserHolding.stock_symbol == symbol.upper()
+    ).first()
+    if not holding:
+        raise HTTPException(status_code=404, detail="Holding not found")
+    db.delete(holding)
+    db.commit()
+    return {"status": "success", "message": f"Deleted holding for {symbol}."}
+
+@router.get("/portfolio/analysis")
+def get_portfolio_analysis(db: Session = Depends(get_db)):
+    """Calculate aggregate portfolio analytics: total cost, current value, total P&L, and weights."""
+    holdings = db.query(UserHolding).filter(UserHolding.user_id == 1).all()
+    total_cost = 0.0
+    total_value = 0.0
+    
+    breakdown = []
+    for h in holdings:
+        latest_price_entry = db.query(StockPriceHistory).filter(
+            StockPriceHistory.stock_symbol == h.stock_symbol.upper()
+        ).order_by(StockPriceHistory.date.desc()).first()
+        current_price = latest_price_entry.close_price if latest_price_entry else h.average_buy_price
+        
+        cost = h.shares * h.average_buy_price
+        value = h.shares * current_price
+        
+        total_cost += cost
+        total_value += value
+        
+        breakdown.append({
+            "symbol": h.stock_symbol,
+            "value": round(value, 2)
+        })
+        
+    pnl = total_value - total_cost
+    pnl_pct = (pnl / total_cost * 100) if total_cost > 0 else 0.0
+    
+    # Calculate weights
+    weights = {}
+    for item in breakdown:
+        weights[item["symbol"]] = round(item["value"] / total_value, 4) if total_value > 0 else 0.0
+        
+    return {
+        "total_cost": round(total_cost, 2),
+        "total_value": round(total_value, 2),
+        "pnl": round(pnl, 2),
+        "pnl_pct": round(pnl_pct, 2),
+        "weights": weights
+    }
+
+
+
+# 19. Portfolio Optimization (MPT)
+from app.services.portfolio_optimization import PortfolioOptimizer
+
+@router.get("/portfolio/optimize")
+def optimize_portfolio(symbols: str, db: Session = Depends(get_db)):
+    """
+    Run Modern Portfolio Theory (MPT) optimization on a list of comma-separated stock tickers.
+    Returns optimal Sharpe weighting and Efficient Frontier metrics.
+    """
+    if not symbols:
+        raise HTTPException(status_code=400, detail="Comma-separated 'symbols' parameter is required.")
+    
+    symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+    if len(symbol_list) < 2:
+        raise HTTPException(status_code=400, detail="Please provide at least 2 valid stock symbols for optimization.")
+        
+    try:
+        return PortfolioOptimizer.optimize_portfolio(symbol_list, db)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# 21. Portfolio Transactions & Sync Endpoints
+from app.models.models import PortfolioTransaction
+
+@router.get("/portfolio/transactions")
+def get_portfolio_transactions(limit: int = 50, db: Session = Depends(get_db)):
+    """Retrieve the log of all portfolio transactions."""
+    txs = db.query(PortfolioTransaction).filter(
+        PortfolioTransaction.user_id == 1
+    ).order_by(PortfolioTransaction.timestamp.desc()).limit(limit).all()
+    return [
+        {
+            "id": t.id,
+            "stock_symbol": t.stock_symbol,
+            "transaction_type": t.transaction_type,
+            "shares": t.shares,
+            "price": t.price,
+            "timestamp": t.timestamp.isoformat() if t.timestamp else None
+        }
+        for t in txs
+    ]
+
+@router.post("/stocks/sync")
+def trigger_live_stocks_sync(db: Session = Depends(get_db)):
+    """Trigger a dynamic refresh of yfinance financial and technical metrics for all tracked stocks."""
+    try:
+        from app.worker.scheduler import MonthlyScheduler
+        scheduler = MonthlyScheduler()
+        scheduler._ensure_stock_metrics(db)
+        return {"status": "success", "message": "Enriched stock metrics synced successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Stock sync failed: {str(e)}")
+
+
+# 22. Admin Commands Panel
+from pydantic import BaseModel
+
+class AdminLoginRequest(BaseModel):
+    username: str
+    password: str
+
+class AdminMetricsUpdateRequest(BaseModel):
+    # Financial metrics fields
+    financial_year: Optional[int] = 2025
+    revenue: Optional[float] = None
+    revenue_growth: Optional[float] = None
+    net_profit: Optional[float] = None
+    profit_growth: Optional[float] = None
+    roce: Optional[float] = None
+    roe: Optional[float] = None
+    debt_to_equity: Optional[float] = None
+    cash_flow_from_operations: Optional[float] = None
+    promoter_holding: Optional[float] = None
+    fii_holding: Optional[float] = None
+    dii_holding: Optional[float] = None
+    order_book: Optional[float] = None
+    capex: Optional[float] = None
+    free_cash_flow: Optional[float] = None
+    ebitda: Optional[float] = None
+    opm_pct: Optional[float] = None
+    npm_pct: Optional[float] = None
+    interest_coverage: Optional[float] = None
+    debtor_days: Optional[int] = None
+    inventory_turnover: Optional[float] = None
+    promoter_pledged_pct: Optional[float] = None
+
+    # Valuation metrics fields
+    pe_ratio: Optional[float] = None
+    ev_ebitda: Optional[float] = None
+    peg_ratio: Optional[float] = None
+    fifty_two_week_high: Optional[float] = None
+    fifty_two_week_low: Optional[float] = None
+
+    # Technical indicators fields
+    rsi: Optional[float] = None
+    macd: Optional[float] = None
+    sma_50: Optional[float] = None
+    sma_200: Optional[float] = None
+    volume_breakout: Optional[bool] = None
+    relative_strength: Optional[float] = None
+    trend_strength: Optional[str] = None
+    ema_20: Optional[float] = None
+    ema_50: Optional[float] = None
+    ema_200: Optional[float] = None
+    beta: Optional[float] = None
+    avg_volume_20d: Optional[float] = None
+
+
+@router.post("/admin/login")
+def admin_login(req: AdminLoginRequest):
+    if req.username == "admin" and req.password == "admin123":
+        return {"status": "success", "token": "admin-mock-token"}
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid admin credentials")
+
+
+@router.put("/admin/stock/{symbol}/metrics")
+def update_stock_metrics(symbol: str, req: AdminMetricsUpdateRequest, db: Session = Depends(get_db)):
+    # Verify stock exists
+    stock = db.query(Stock).filter(Stock.symbol == symbol.upper()).first()
+    if not stock:
+        raise HTTPException(status_code=404, detail=f"Stock {symbol} not found")
+
+    # 1. Update Financial Metrics (default year 2025)
+    financial_year = req.financial_year or 2025
+    fm = db.query(FinancialMetric).filter(
+        FinancialMetric.stock_symbol == symbol.upper(),
+        FinancialMetric.financial_year == financial_year
+    ).first()
+    if not fm:
+        fm = FinancialMetric(stock_symbol=symbol.upper(), financial_year=financial_year)
+        db.add(fm)
+
+    financial_fields = [
+        "revenue", "revenue_growth", "net_profit", "profit_growth", "roce", "roe",
+        "debt_to_equity", "cash_flow_from_operations", "promoter_holding",
+        "fii_holding", "dii_holding", "order_book", "capex", "free_cash_flow",
+        "ebitda", "opm_pct", "npm_pct", "interest_coverage", "debtor_days",
+        "inventory_turnover", "promoter_pledged_pct"
+    ]
+    updated_financial = []
+    for field in financial_fields:
+        val = getattr(req, field)
+        if val is not None:
+            setattr(fm, field, val)
+            updated_financial.append(f"{field}={val}")
+
+    # 2. Update Valuation Metrics
+    vm = db.query(ValuationMetric).filter(ValuationMetric.stock_symbol == symbol.upper()).first()
+    if not vm:
+        vm = ValuationMetric(stock_symbol=symbol.upper())
+        db.add(vm)
+
+    valuation_fields = ["pe_ratio", "ev_ebitda", "peg_ratio", "fifty_two_week_high", "fifty_two_week_low"]
+    updated_valuation = []
+    for field in valuation_fields:
+        val = getattr(req, field)
+        if val is not None:
+            setattr(vm, field, val)
+            updated_valuation.append(f"{field}={val}")
+
+    # 3. Update Technical Indicators
+    from app.models.models import TechnicalIndicator
+    ti = db.query(TechnicalIndicator).filter(TechnicalIndicator.stock_symbol == symbol.upper()).first()
+    if not ti:
+        ti = TechnicalIndicator(stock_symbol=symbol.upper())
+        db.add(ti)
+
+    technical_fields = [
+        "rsi", "macd", "sma_50", "sma_200", "volume_breakout",
+        "relative_strength", "trend_strength", "ema_20", "ema_50",
+        "ema_200", "beta", "avg_volume_20d"
+    ]
+    updated_technical = []
+    for field in technical_fields:
+        val = getattr(req, field)
+        if val is not None:
+            setattr(ti, field, val)
+            updated_technical.append(f"{field}={val}")
+
+    # Log audit trail
+    details = f"Updated metrics for {symbol.upper()}."
+    if updated_financial:
+        details += f" Financials: {', '.join(updated_financial)}."
+    if updated_valuation:
+        details += f" Valuation: {', '.join(updated_valuation)}."
+    if updated_technical:
+        details += f" Technical: {', '.join(updated_technical)}."
+
+    audit_log = AuditLog(
+        action="UPDATE_METRICS",
+        target_type="STOCK",
+        target_id=symbol.upper(),
+        details=details
+    )
+    db.add(audit_log)
+    db.commit()
+
+    return {"status": "success", "message": f"Metrics for {symbol.upper()} updated successfully."}
+
+
+@router.post("/admin/actions/scrape-all")
+def trigger_scrape_all(db: Session = Depends(get_db)):
+    try:
+        from app.worker.scheduler import MonthlyScheduler
+        
+        def run_scrape():
+            db_session = SessionLocal()
+            try:
+                scheduler = MonthlyScheduler()
+                scheduler.scan_and_update()
+            finally:
+                db_session.close()
+            
+        # Log audit trail
+        audit_log = AuditLog(
+            action="TRIGGER_SCRAPER",
+            target_type="SYSTEM",
+            target_id="ALL",
+            details="Manually triggered scrapers and document download updates."
+        )
+        db.add(audit_log)
+        db.commit()
+        
+        import threading
+        thread = threading.Thread(target=run_scrape)
+        thread.start()
+        
+        return {"status": "success", "message": "Scraper dynamic sync job triggered in the background."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to trigger scraper: {str(e)}")
+
+
+@router.post("/admin/actions/rebuild-db")
+def trigger_rebuild_db(db: Session = Depends(get_db)):
+    try:
+        from app.services.ingestion import IngestionEngine
+        from app.models.models import AnnualReport, CorporateDocument, StockArticle
+        from app.core.config import settings
+        from app.core.qdrant import qdrant_client, init_qdrant
+        
+        # 1. Sync stock database metrics from stocks.csv
+        engine = IngestionEngine(db)
+        stocks = engine.sync_stocks_from_csv()
+        
+        # 2. Clear tables
+        db.query(AnnualReport).delete()
+        db.query(CorporateDocument).delete()
+        db.query(StockArticle).delete()
+        db.commit()
+        
+        # 3. Recreate Qdrant Collection
+        if qdrant_client:
+            try:
+                qdrant_client.delete_collection(settings.QDRANT_COLLECTION_NAME)
+            except Exception:
+                pass
+            init_qdrant()
+            
+        # Log audit trail
+        audit_log = AuditLog(
+            action="REBUILD_DATABASE",
+            target_type="SYSTEM",
+            target_id="ALL",
+            details=f"Purged all vector databases, document tables, and re-synced stocks list ({len(stocks)} stocks)."
+        )
+        db.add(audit_log)
+        db.commit()
+        
+        return {"status": "success", "message": "SQLite document tables and Qdrant collections purged and rebuilt successfully."}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database rebuild failed: {str(e)}")
+
+
+
 
 
 

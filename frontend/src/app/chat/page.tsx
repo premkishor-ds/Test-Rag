@@ -377,7 +377,7 @@ export default function StockChat() {
       // 1. Headers
       if (line.startsWith("## ")) {
         elements.push(
-          <h2 key={`h2-${idx}`} className="text-sm font-extrabold text-slate-900 dark:text-white mt-6 mb-2 border-b border-slate-100 dark:border-[#1E2538] pb-1 uppercase tracking-wider">
+          <h2 key={`h2-${idx}`} className="text-sm font-extrabold text-[color:var(--text-primary)] mt-6 mb-2 border-b border-[color:var(--border-color)] pb-1 uppercase tracking-wider">
             {line.replace("## ", "")}
           </h2>
         );
@@ -385,7 +385,7 @@ export default function StockChat() {
       }
       if (line.startsWith("### ")) {
         elements.push(
-          <h3 key={`h3-${idx}`} className="text-xs font-bold text-blue-600 dark:text-[#00E5FF] mt-4 mb-2 uppercase tracking-wide">
+          <h3 key={`h3-${idx}`} className="text-xs font-bold text-[color:var(--cyan-accent)] mt-4 mb-2 uppercase tracking-wide">
             {line.replace("### ", "")}
           </h3>
         );
@@ -412,20 +412,20 @@ export default function StockChat() {
         tableHeaders = [];
         tableRows = [];
         elements.push(
-          <div key={`table-${idx}`} className="overflow-x-auto my-4 border border-slate-200 dark:border-[#1E2538] rounded-xl shadow-sm">
+          <div key={`table-${idx}`} className="overflow-x-auto my-4 border border-[color:var(--border-color)] rounded-xl bg-[color:var(--bg-secondary)] shadow-sm">
             <table className="w-full text-left border-collapse text-[11px] font-medium">
               <thead>
-                <tr className="bg-slate-50 dark:bg-[#0B0F19] border-b border-slate-200 dark:border-[#1E2538] text-[9px] text-slate-500 font-bold uppercase tracking-wider">
+                <tr className="bg-[color:var(--bg-tertiary)] border-b border-[color:var(--border-color)] text-[9px] text-[color:var(--text-secondary)] font-bold uppercase tracking-wider">
                   {headers.map((h, i) => (
                     <th key={i} className="py-2.5 px-3">{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-[#1E2538]/50">
+              <tbody className="divide-y divide-[color:var(--border-color)]/50">
                 {rows.map((row, rIdx) => (
-                  <tr key={rIdx} className="hover:bg-slate-50/50 dark:hover:bg-[#0B0F19]/25 transition-colors">
+                  <tr key={rIdx} className="hover:bg-[color:var(--bg-tertiary)]/30 transition-colors">
                     {row.map((cell, cIdx) => (
-                      <td key={cIdx} className="py-2 px-3 text-slate-700 dark:text-slate-300">{cell}</td>
+                      <td key={cIdx} className="py-2 px-3 text-[color:var(--text-primary)]/90">{cell}</td>
                     ))}
                   </tr>
                 ))}
@@ -438,7 +438,7 @@ export default function StockChat() {
       // 3. Bullet points
       if (line.startsWith("* ") || line.startsWith("- ")) {
         elements.push(
-          <li key={`li-${idx}`} className="ml-4 list-disc text-xs text-slate-750 dark:text-slate-300 leading-relaxed my-1 pl-1">
+          <li key={`li-${idx}`} className="ml-4 list-disc text-xs text-[color:var(--text-primary)]/80 leading-relaxed my-1 pl-1">
             {formatBold(line.substring(2))}
           </li>
         );
@@ -452,7 +452,7 @@ export default function StockChat() {
       }
 
       elements.push(
-        <p key={`p-${idx}`} className="text-xs text-slate-750 dark:text-slate-300 leading-relaxed my-1">
+        <p key={`p-${idx}`} className="text-xs text-[color:var(--text-primary)]/85 leading-relaxed my-1">
           {formatBold(line)}
         </p>
       );
@@ -467,7 +467,7 @@ export default function StockChat() {
         if (match.index > lastIndex) {
           parts.push(str.substring(lastIndex, match.index));
         }
-        parts.push(<strong key={match.index} className="text-slate-900 dark:text-white font-semibold">{match[1]}</strong>);
+        parts.push(<strong key={match.index} className="text-[color:var(--text-primary)] font-semibold">{match[1]}</strong>);
         lastIndex = regex.lastIndex;
       }
       if (lastIndex < str.length) {
@@ -480,18 +480,18 @@ export default function StockChat() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-64px)] w-full bg-white dark:bg-[#080B11] relative overflow-hidden">
+    <div className="flex h-[calc(100vh-64px)] w-full bg-[color:var(--bg-primary)] relative overflow-hidden">
       
       {/* Sidebar Panel - Collapsible / ChatGPT Style */}
       <div 
         className={`${
-          sidebarOpen ? "w-64" : "w-0"
-        } transition-all duration-300 ease-in-out border-r border-slate-200 dark:border-[#1E2538] bg-slate-50/50 dark:bg-[#090C15] flex flex-col flex-shrink-0 z-20 relative overflow-hidden`}
+          sidebarOpen ? "w-66 border-r" : "w-0 border-r-0"
+        } transition-all duration-350 ease-in-out border-[color:var(--border-color)] bg-[color:var(--bg-secondary)] flex flex-col flex-shrink-0 z-20 relative overflow-hidden`}
       >
-        <div className="p-4 border-b border-slate-200 dark:border-[#1E2538] flex items-center justify-between">
+        <div className="p-4 border-b border-[color:var(--border-color)] flex items-center justify-between">
           <button 
             onClick={startNewSession}
-            className="flex-grow flex items-center justify-center space-x-2 py-2 px-3 bg-blue-600 dark:bg-[#00E5FF] hover:opacity-90 text-white dark:text-[#080A10] rounded-xl text-xs font-bold transition-all shadow-sm"
+            className="flex-grow flex items-center justify-center space-x-2 py-2 px-3 bg-[color:var(--cyan-accent)] hover:opacity-90 text-white dark:text-black rounded-lg text-xs font-bold transition-all shadow-sm"
           >
             <Plus className="h-4 w-4" />
             <span>New Research</span>
@@ -500,7 +500,7 @@ export default function StockChat() {
 
         {/* Sessions List */}
         <div className="flex-grow overflow-y-auto p-3 space-y-1.5 scrollbar-thin">
-          <div className="flex items-center space-x-2 px-2 pb-2 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+          <div className="flex items-center space-x-2 px-2 pb-2 text-[10px] font-bold text-[color:var(--text-secondary)] uppercase tracking-widest">
             <History className="h-3.5 w-3.5" />
             <span>Recent Analysis</span>
           </div>
@@ -511,13 +511,13 @@ export default function StockChat() {
               placeholder="Search chat history..."
               value={sessionSearch}
               onChange={(e) => setSessionSearch(e.target.value)}
-              className="w-full bg-slate-100 dark:bg-[#131A30] border border-slate-200 dark:border-[#1E2538] text-[11px] p-2 rounded-lg font-semibold placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              className="w-full bg-[color:var(--bg-tertiary)] border border-[color:var(--border-color)] text-[11px] p-2 rounded-lg font-semibold placeholder-[color:var(--text-secondary)] focus:outline-none focus:border-[color:var(--cyan-accent)]"
             />
           </div>
           
           {/* Temporary Blank Session Indicator in Sidebar */}
           {currentSessionId.startsWith("temp-") && (
-            <div className="flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold cursor-pointer bg-slate-200/60 dark:bg-[#1C233D] text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer bg-[color:var(--bg-tertiary)] text-[color:var(--text-primary)]">
               <div className="flex items-center space-x-2 truncate">
                 <MessageSquare className="h-3.5 w-3.5 opacity-60 flex-shrink-0" />
                 <span className="truncate italic">New Research Session</span>
@@ -531,10 +531,10 @@ export default function StockChat() {
               <div
               key={s.id}
               onClick={() => selectSession(s.id)}
-              className={`group flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+              className={`group flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
                 s.id === currentSessionId
-                  ? "bg-slate-200/60 dark:bg-[#1C233D] text-slate-900 dark:text-white"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#131A30]"
+                  ? "bg-[color:var(--bg-tertiary)] text-[color:var(--text-primary)] border border-[color:var(--border-color)]"
+                  : "text-[color:var(--text-secondary)] hover:bg-[color:var(--bg-tertiary)]/50"
               }`}
             >
               <div className="flex items-center space-x-2 truncate">
@@ -544,7 +544,7 @@ export default function StockChat() {
               <button
                 type="button"
                 onClick={(e) => deleteSession(s.id, e)}
-                className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-500 rounded transition-opacity"
+                className="opacity-0 group-hover:opacity-100 p-1 text-[color:var(--text-secondary)] hover:text-red-500 rounded transition-opacity"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -553,33 +553,33 @@ export default function StockChat() {
         </div>
 
         {/* Bottom Panel Info */}
-        <div className="p-4 border-t border-slate-200 dark:border-[#1E2538] text-[9px] text-slate-550 dark:text-slate-400 font-bold uppercase tracking-wider space-y-1">
+        <div className="p-4 border-t border-[color:var(--border-color)] text-[9px] text-[color:var(--text-secondary)] font-bold uppercase tracking-wider space-y-1">
           <span>{selectedModel} Active Node</span>
         </div>
       </div>
 
       {/* Main Chat Workspace */}
-      <div className="flex-grow flex flex-col h-full relative bg-slate-50/15 dark:bg-transparent">
+      <div className="flex-grow flex flex-col h-full relative bg-[color:var(--bg-primary)]">
         
         {/* Top Control Bar */}
-        <div className="px-6 py-3 border-b border-slate-200 dark:border-[#1E2538]/70 flex items-center justify-between bg-white dark:bg-[#0E121E]/30 z-10">
+        <div className="px-6 py-3 border-b border-[color:var(--border-color)] flex items-center justify-between bg-[color:var(--bg-secondary)] z-10">
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-[#1A2035] rounded-lg transition-colors"
+              className="p-1.5 text-[color:var(--text-secondary)] hover:bg-[color:var(--bg-tertiary)] rounded-lg transition-colors"
               title="Toggle Sidebar"
             >
               <Menu className="h-4.5 w-4.5" />
             </button>
             <div>
-              <h2 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">EQUITY.AI Copilot</h2>
+              <h2 className="text-xs font-black text-[color:var(--text-primary)] uppercase tracking-wider">EQUITY.AI Copilot</h2>
             </div>
           </div>
           
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2 bg-emerald-500/10 dark:bg-emerald-500/5 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+            <div className="flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
-              <span className="text-[9px] text-emerald-600 dark:text-emerald-450 font-bold uppercase tracking-widest">RAG Engine Online</span>
+              <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest">RAG Engine Online</span>
             </div>
 
             {/* Export Thread Button */}
@@ -604,7 +604,7 @@ export default function StockChat() {
                     console.error("Export failed:", e);
                   }
                 }}
-                className="p-1.5 text-slate-550 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1A2035] rounded-lg transition-all"
+                className="p-1.5 text-[color:var(--text-secondary)] hover:text-[color:var(--text-primary)] hover:bg-[color:var(--bg-tertiary)] rounded-lg transition-all"
                 title="Export Research Report"
               >
                 <Download className="h-4.5 w-4.5" />
@@ -614,7 +614,7 @@ export default function StockChat() {
             {/* Settings Trigger Gear Button */}
             <button
               onClick={handleOpenSettings}
-              className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1A2035] rounded-lg transition-all"
+              className="p-1.5 text-[color:var(--text-secondary)] hover:text-[color:var(--text-primary)] hover:bg-[color:var(--bg-tertiary)] rounded-lg transition-all"
               title="Chat Settings"
             >
               <Settings className="h-4.5 w-4.5" />
@@ -628,10 +628,10 @@ export default function StockChat() {
             /* ChatGPT / Gemini Welcome screen */
             <div className="h-full flex flex-col items-center justify-center max-w-2xl mx-auto text-center space-y-8 my-auto">
               <div className="space-y-3">
-                <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-[#00E5FF] dark:to-[#00F5D4] bg-clip-text text-transparent">
+                <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-[color:var(--cyan-accent)] to-[color:var(--teal-accent)] bg-clip-text text-transparent">
                   Where should we research today?
                 </h1>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                <p className="text-xs text-[color:var(--text-secondary)] font-medium">
                   Ask quantitative parameters, compare stock filings, or evaluate corporate risks.
                 </p>
               </div>
@@ -644,13 +644,13 @@ export default function StockChat() {
                     <button
                       key={idx}
                       onClick={() => handleSend(item.text)}
-                      className="p-4 text-left rounded-2xl border border-slate-200/80 hover:border-slate-350 dark:border-[#1A2035] dark:hover:border-[#2D364F] bg-white dark:bg-[#0B0F19]/40 hover:bg-slate-50 dark:hover:bg-[#0E121E]/80 transition-all flex flex-col justify-between shadow-sm group"
+                      className="p-4 text-left rounded-xl border border-[color:var(--border-color)] bg-[color:var(--bg-secondary)] hover:border-[color:var(--cyan-accent)] hover:bg-[color:var(--bg-tertiary)]/50 transition-all flex flex-col justify-between shadow-sm group"
                     >
                       <div className="flex items-center justify-between w-full">
-                        <span className="text-[10px] font-black text-blue-600 dark:text-[#00E5FF] uppercase tracking-widest">{item.tag}</span>
-                        <ArrowUpRight className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-500 dark:group-hover:text-[#00E5FF] transition-all" />
+                        <span className="text-[10px] font-black text-[color:var(--cyan-accent)] uppercase tracking-widest">{item.tag}</span>
+                        <ArrowUpRight className="h-3.5 w-3.5 text-[color:var(--text-secondary)] group-hover:text-[color:var(--cyan-accent)] transition-all" />
                       </div>
-                      <p className="text-xs text-slate-700 dark:text-slate-300 font-semibold mt-2.5">{item.text}</p>
+                      <p className="text-xs text-[color:var(--text-primary)] font-semibold mt-2.5">{item.text}</p>
                     </button>
                   );
                 })}
@@ -667,30 +667,30 @@ export default function StockChat() {
                   }`}
                 >
                   {msg.role === "assistant" && (
-                    <div className="p-2 rounded-xl flex-shrink-0 bg-blue-600/10 dark:bg-[#00E5FF]/10 text-blue-600 dark:text-[#00E5FF] border border-blue-600/20 dark:border-[#00E5FF]/20 shadow-sm">
+                    <div className="p-2 rounded-lg flex-shrink-0 bg-[color:var(--cyan-accent)]/10 text-[color:var(--cyan-accent)] border border-[color:var(--cyan-accent)]/20 shadow-sm">
                       <Sparkles className="h-4.5 w-4.5" />
                     </div>
                   )}
 
                   <div className="space-y-3 flex-grow max-w-[88%]">
                     {/* Chat Bubble Body */}
-                    <div className={`p-4 rounded-2xl text-xs leading-relaxed ${
+                    <div className={`p-4 rounded-xl text-xs leading-relaxed ${
                       msg.role === "user" 
-                        ? "bg-blue-600 text-white ml-auto max-w-[80%] shadow-md shadow-blue-500/5 font-semibold" 
-                        : "bg-slate-100/80 border border-slate-200 dark:bg-[#0C0F1A]/80 dark:border-[#1E2538]/70 dark:text-slate-300 font-medium"
+                        ? "bg-[color:var(--cyan-accent)] text-white dark:text-black ml-auto max-w-[80%] shadow-md font-semibold" 
+                        : "bg-[color:var(--bg-secondary)] border border-[color:var(--border-color)] text-[color:var(--text-primary)] font-medium"
                     }`}>
                       {renderFormattedText(msg.text)}
                     </div>
 
                     {/* Metric evaluation block */}
                     {msg.scores && (
-                      <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-[#0F1322]/50 border border-slate-200 dark:border-[#1A2035] space-y-3">
-                        <div className="flex items-center justify-between border-b border-slate-200 dark:border-[#1E2538] pb-1.5">
-                          <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center space-x-1">
-                            <BarChart2 className="h-3.5 w-3.5 text-blue-600 dark:text-[#00E5FF]" />
+                      <div className="p-3.5 rounded-xl bg-[color:var(--bg-secondary)] border border-[color:var(--border-color)] space-y-3">
+                        <div className="flex items-center justify-between border-b border-[color:var(--border-color)] pb-1.5">
+                          <span className="text-[10px] font-black text-[color:var(--text-secondary)] uppercase tracking-widest flex items-center space-x-1">
+                            <BarChart2 className="h-3.5 w-3.5 text-[color:var(--cyan-accent)]" />
                             <span>AI Financial Evaluation Metrics</span>
                           </span>
-                          <span className="text-xs font-black text-blue-600 dark:text-[#00E5FF]">
+                          <span className="text-xs font-black text-[color:var(--cyan-accent)]">
                             Overall Score: {msg.scores.overall}/100
                           </span>
                         </div>
@@ -699,11 +699,11 @@ export default function StockChat() {
                             .filter(([key]) => key !== "overall")
                             .map(([key, val]) => (
                               <div key={key} className="space-y-1">
-                                <div className="flex justify-between text-[10px] font-bold text-slate-600 dark:text-slate-400 capitalize">
+                                <div className="flex justify-between text-[10px] font-bold text-[color:var(--text-secondary)] capitalize">
                                   <span>{key} Score</span>
                                   <span>{val}/100</span>
                                 </div>
-                                <div className="w-full bg-slate-200 dark:bg-[#1E2538] h-1.5 rounded-full overflow-hidden">
+                                <div className="w-full bg-[color:var(--bg-tertiary)] h-1.5 rounded-full overflow-hidden">
                                   <div 
                                     className={`h-full rounded-full transition-all duration-500 ${
                                       val >= 70 
@@ -724,7 +724,7 @@ export default function StockChat() {
                     {/* Cited sources accordion list */}
                     {msg.sources && msg.sources.length > 0 && (
                       <div className="space-y-2">
-                        <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">
+                        <span className="text-[9px] font-black text-[color:var(--text-secondary)] uppercase tracking-widest block">
                           Verified Citations:
                         </span>
                         <div className="flex flex-col gap-1.5">
@@ -734,25 +734,25 @@ export default function StockChat() {
                             return (
                               <div 
                                 key={srcIdx} 
-                                className="border border-slate-200 dark:border-[#1E2538] rounded-xl overflow-hidden bg-white dark:bg-[#0B0F19]/20 text-[11px]"
+                                className="border border-[color:var(--border-color)] rounded-xl overflow-hidden bg-[color:var(--bg-secondary)] text-[11px]"
                               >
                                 <button 
                                   type="button"
                                   onClick={() => setExpandedSource(isExpanded ? null : uniqueKey)}
-                                  className="w-full px-3 py-2 flex items-center justify-between text-left hover:bg-slate-100/50 dark:hover:bg-[#141A2D]/40 transition-colors"
+                                  className="w-full px-3 py-2 flex items-center justify-between text-left hover:bg-[color:var(--bg-tertiary)]/50 transition-colors"
                                 >
-                                  <span className="flex items-center space-x-2 font-bold text-slate-700 dark:text-slate-300">
-                                    <FileText className="h-3.5 w-3.5 text-slate-400" />
+                                  <span className="flex items-center space-x-2 font-bold text-[color:var(--text-primary)]">
+                                    <FileText className="h-3.5 w-3.5 text-[color:var(--text-secondary)]" />
                                     <span className="truncate max-w-[200px]">{src.metadata.source_file}</span>
-                                    <span className="text-slate-400 font-normal text-[10px]">p. {src.metadata.page_number}</span>
+                                    <span className="text-[color:var(--text-secondary)] font-normal text-[10px]">p. {src.metadata.page_number}</span>
                                   </span>
-                                  <div className="flex items-center space-x-2 text-[10px] font-black text-blue-600 dark:text-[#00E5FF]">
+                                  <div className="flex items-center space-x-2 text-[10px] font-black text-[color:var(--cyan-accent)]">
                                     <span>Match: {Math.round(src.score * 100)}%</span>
                                     {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                                   </div>
                                 </button>
                                 {isExpanded && (
-                                  <div className="px-3 py-2.5 bg-slate-50/50 dark:bg-[#07090F] border-t border-slate-200 dark:border-[#1E2538]/70 text-[11px] text-slate-600 dark:text-slate-400 italic leading-relaxed">
+                                  <div className="px-3 py-2.5 bg-[color:var(--bg-tertiary)]/30 border-t border-[color:var(--border-color)] text-[11px] text-[color:var(--text-secondary)] italic leading-relaxed">
                                     "{src.content}"
                                   </div>
                                 )}
@@ -769,8 +769,8 @@ export default function StockChat() {
           )}
 
           {loading && (
-            <div className="max-w-3xl mx-auto flex items-center space-x-3 text-slate-400 dark:text-slate-500 font-black text-[9px] uppercase tracking-widest animate-pulse pl-12 mt-4">
-              <Sparkles className="h-4 w-4 text-blue-600 dark:text-[#00E5FF] animate-spin" />
+            <div className="max-w-3xl mx-auto flex items-center space-x-3 text-[color:var(--text-secondary)] font-black text-[9px] uppercase tracking-widest pl-12 mt-4">
+              <Sparkles className="h-4 w-4 text-[color:var(--cyan-accent)] animate-spin" />
               <span>Scanning databases & formulating financial thesis...</span>
             </div>
           )}
@@ -779,17 +779,17 @@ export default function StockChat() {
         </div>
 
         {/* Centered Pill Search Input Bar */}
-        <div className="p-4 bg-white dark:bg-[#0A0D18]/50 border-t border-slate-200 dark:border-[#1E2538] backdrop-blur-md">
+        <div className="p-4 bg-[color:var(--bg-secondary)] border-t border-[color:var(--border-color)] backdrop-blur-md">
           {documents.length > 0 && (
             <div className="max-w-3xl mx-auto mb-2 flex items-center space-x-2 px-1">
-              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center space-x-1">
-                <FileText className="h-3.5 w-3.5 text-blue-600 dark:text-[#00E5FF]" />
+              <span className="text-[10px] font-black text-[color:var(--text-secondary)] uppercase tracking-widest flex items-center space-x-1">
+                <FileText className="h-3.5 w-3.5 text-[color:var(--cyan-accent)]" />
                 <span>Chat Focus:</span>
               </span>
               <select
                 value={selectedDocument}
                 onChange={(e) => setSelectedDocument(e.target.value)}
-                className="bg-slate-105 dark:bg-[#131722] text-[11px] font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-[#1E2538] rounded-lg px-2.5 py-1 focus:outline-none focus:border-blue-500 max-w-xs truncate"
+                className="bg-[color:var(--bg-tertiary)] text-[11px] font-bold text-[color:var(--text-primary)] border border-[color:var(--border-color)] rounded-lg px-2.5 py-1 focus:outline-none focus:border-[color:var(--cyan-accent)] max-w-xs truncate"
               >
                 <option value="">All Stock Documents ({documents.length})</option>
                 {documents.map((doc, idx) => (
@@ -798,25 +798,26 @@ export default function StockChat() {
               </select>
             </div>
           )}
+
           <form 
             onSubmit={(e) => {
               e.preventDefault();
               handleSend(input);
             }}
-            className="max-w-3xl mx-auto relative flex items-center bg-slate-100 dark:bg-[#0C0F1A] border border-slate-250 dark:border-[#1E2538] focus-within:border-blue-600 dark:focus-within:border-[#00E5FF] rounded-2xl px-4 py-2 transition-all shadow-sm focus-within:ring-1 focus-within:ring-blue-600/20 dark:focus-within:ring-[#00E5FF]/20"
+            className="max-w-3xl mx-auto relative flex items-center bg-[color:var(--bg-tertiary)] border border-[color:var(--border-color)] focus-within:border-[color:var(--cyan-accent)] rounded-xl px-4 py-2 transition-all shadow-sm focus-within:ring-1 focus-within:ring-[color:var(--cyan-accent)]/20"
           >
             <input 
               type="text" 
               value={input} 
               onChange={(e) => setInput(e.target.value)} 
               placeholder="Ask Copilot: 'Should I invest in GROWW?' or 'Compare SJS vs AEROFLEX'..." 
-              className="flex-grow bg-transparent text-xs text-slate-900 dark:text-white focus:outline-none py-2 px-1 font-semibold placeholder-slate-400 dark:placeholder-slate-500"
+              className="flex-grow bg-transparent text-xs text-[color:var(--text-primary)] focus:outline-none py-2 px-1 font-semibold placeholder-[color:var(--text-secondary)]"
               disabled={loading}
             />
             <button 
               type="submit" 
               disabled={loading || !input.trim()}
-              className="p-2.5 bg-blue-600 dark:bg-[#00E5FF] text-white dark:text-[#080A10] rounded-xl hover:opacity-90 active:scale-95 disabled:opacity-30 disabled:scale-100 transition-all flex items-center justify-center shadow-md dark:shadow-none"
+              className="p-2.5 bg-[color:var(--cyan-accent)] text-white dark:text-black rounded-lg hover:opacity-90 active:scale-95 disabled:opacity-30 disabled:scale-100 transition-all flex items-center justify-center shadow-md dark:shadow-none"
             >
               <Send className="h-3.5 w-3.5" />
             </button>
@@ -827,16 +828,16 @@ export default function StockChat() {
       {/* Settings Overlay Modal Dialog */}
       {settingsOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#0B0F1A] border border-slate-200 dark:border-[#1E2538] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-[color:var(--bg-secondary)] border border-[color:var(--border-color)] rounded-xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-250 dark:border-[#1E2538] flex items-center justify-between">
-              <div className="flex items-center space-x-2 text-slate-900 dark:text-white">
-                <Settings className="h-4.5 w-4.5 text-blue-600 dark:text-[#00E5FF]" />
+            <div className="px-6 py-4 border-b border-[color:var(--border-color)] flex items-center justify-between text-[color:var(--text-primary)]">
+              <div className="flex items-center space-x-2">
+                <Settings className="h-4.5 w-4.5 text-[color:var(--cyan-accent)]" />
                 <h3 className="text-sm font-extrabold uppercase tracking-wider">Research Terminal Settings</h3>
               </div>
               <button 
                 onClick={() => setSettingsOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg transition-colors"
+                className="p-1 text-[color:var(--text-secondary)] hover:text-[color:var(--text-primary)] rounded-lg transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -846,14 +847,14 @@ export default function StockChat() {
             <div className="p-6 space-y-5">
               {/* LLM Model Picker */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-500 dark:text-slate-450 uppercase tracking-wider flex items-center space-x-1.5">
+                <label className="text-[10px] font-black text-[color:var(--text-secondary)] uppercase tracking-wider flex items-center space-x-1.5">
                   <Cpu className="h-3.5 w-3.5" />
                   <span>Local LLM Engine Node</span>
                 </label>
                 <select
                   value={tempModel}
                   onChange={(e) => setTempModel(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-[#07090F] border border-slate-200 dark:border-[#1E2538] rounded-xl py-2 px-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-600 font-bold"
+                  className="w-full bg-[color:var(--bg-tertiary)] border border-[color:var(--border-color)] rounded-lg py-2 px-3 text-xs text-[color:var(--text-primary)] focus:outline-none focus:border-[color:var(--cyan-accent)] font-bold"
                 >
                   <option value="qwen2.5:14b">Qwen 2.5:14B (Optimized Financial Logic)</option>
                   <option value="qwen2.5:7b">Qwen 2.5:7B (Fast Conversational)</option>
@@ -863,12 +864,12 @@ export default function StockChat() {
 
               {/* Temperature Slider */}
               <div className="space-y-2">
-                <div className="flex justify-between items-center text-[10px] font-black text-slate-500 dark:text-slate-450 uppercase tracking-wider">
+                <div className="flex justify-between items-center text-[10px] font-black text-[color:var(--text-secondary)] uppercase tracking-wider">
                   <span className="flex items-center space-x-1.5">
                     <Sliders className="h-3.5 w-3.5" />
                     <span>Temperature / Creativity</span>
                   </span>
-                  <span className="text-blue-600 dark:text-[#00E5FF] font-black">{tempTemperature}</span>
+                  <span className="text-[color:var(--cyan-accent)] font-black">{tempTemperature}</span>
                 </div>
                 <input
                   type="range"
@@ -877,9 +878,9 @@ export default function StockChat() {
                   step="0.1"
                   value={tempTemperature}
                   onChange={(e) => setTempTemperature(parseFloat(e.target.value))}
-                  className="w-full accent-blue-600 dark:accent-[#00E5FF]"
+                  className="w-full accent-[color:var(--cyan-accent)]"
                 />
-                <div className="flex justify-between text-[9px] text-slate-400 font-bold uppercase">
+                <div className="flex justify-between text-[9px] text-[color:var(--text-secondary)] font-bold uppercase">
                   <span>Deterministic (0.0)</span>
                   <span>Creative (1.0)</span>
                 </div>
@@ -887,12 +888,12 @@ export default function StockChat() {
 
               {/* Retrieval Limit (Top-K Chunks) */}
               <div className="space-y-2">
-                <div className="flex justify-between items-center text-[10px] font-black text-slate-500 dark:text-slate-450 uppercase tracking-wider">
+                <div className="flex justify-between items-center text-[10px] font-black text-[color:var(--text-secondary)] uppercase tracking-wider">
                   <span className="flex items-center space-x-1.5">
                     <FileText className="h-3.5 w-3.5" />
                     <span>Vector Chunk Retrieve Limit (Top-K)</span>
                   </span>
-                  <span className="text-blue-600 dark:text-[#00E5FF] font-black">{tempTopK} chunks</span>
+                  <span className="text-[color:var(--cyan-accent)] font-black">{tempTopK} chunks</span>
                 </div>
                 <input
                   type="range"
@@ -901,9 +902,9 @@ export default function StockChat() {
                   step="1"
                   value={tempTopK}
                   onChange={(e) => setTempTopK(parseInt(e.target.value))}
-                  className="w-full accent-blue-600 dark:accent-[#00E5FF]"
+                  className="w-full accent-[color:var(--cyan-accent)]"
                 />
-                <div className="flex justify-between text-[9px] text-slate-400 font-bold uppercase">
+                <div className="flex justify-between text-[9px] text-[color:var(--text-secondary)] font-bold uppercase">
                   <span>Fast (3 Chunks)</span>
                   <span>Detailed (20 Chunks)</span>
                 </div>
@@ -911,7 +912,7 @@ export default function StockChat() {
 
               {/* System Instruction Override */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-500 dark:text-slate-450 uppercase tracking-wider flex items-center space-x-1.5">
+                <label className="text-[10px] font-black text-[color:var(--text-secondary)] uppercase tracking-wider flex items-center space-x-1.5">
                   <AlertCircle className="h-3.5 w-3.5" />
                   <span>Custom System Instruction Overrides</span>
                 </label>
@@ -919,13 +920,13 @@ export default function StockChat() {
                   value={tempSystemPrompt}
                   onChange={(e) => setTempSystemPrompt(e.target.value)}
                   placeholder="e.g. 'You are a premium stock research assistant for Indian equities. Focus on GROWW, NETWEB, SJS, AEROFLEX.'"
-                  className="w-full h-20 bg-slate-50 dark:bg-[#07090F] border border-slate-200 dark:border-[#1E2538] rounded-xl py-2 px-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-600 placeholder-slate-500 font-medium"
+                  className="w-full h-20 bg-[color:var(--bg-tertiary)] border border-[color:var(--border-color)] rounded-lg py-2 px-3 text-xs text-[color:var(--text-primary)] focus:outline-none focus:border-[color:var(--cyan-accent)] placeholder-[color:var(--text-secondary)] font-medium"
                 />
               </div>
             </div>
 
             {/* Modal Actions */}
-            <div className="px-6 py-4 bg-slate-50 dark:bg-[#080A10]/50 border-t border-slate-250 dark:border-[#1E2538] flex items-center justify-between">
+            <div className="px-6 py-4 bg-[color:var(--bg-tertiary)]/50 border-t border-[color:var(--border-color)] flex items-center justify-between">
               <button
                 type="button"
                 onClick={async () => {
@@ -942,7 +943,7 @@ export default function StockChat() {
                     }
                   }
                 }}
-                className="px-3.5 py-2 border border-red-200 dark:border-red-900/30 text-[10px] text-red-500 hover:bg-red-500/5 font-bold uppercase tracking-wider rounded-xl transition-all"
+                className="px-3.5 py-2 border border-red-500/30 text-[10px] text-red-500 hover:bg-red-500/5 font-bold uppercase tracking-wider rounded-lg transition-all"
               >
                 Clear DB History
               </button>
@@ -951,14 +952,14 @@ export default function StockChat() {
                 <button
                   type="button"
                   onClick={() => setSettingsOpen(false)}
-                  className="px-4 py-2 border border-slate-200 dark:border-[#1E2538] text-[10px] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white font-bold uppercase tracking-wider rounded-xl transition-all"
+                  className="px-4 py-2 border border-[color:var(--border-color)] text-[10px] text-[color:var(--text-secondary)] hover:text-[color:var(--text-primary)] font-bold uppercase tracking-wider rounded-lg transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleSaveSettings}
-                  className="px-4 py-2 bg-blue-600 dark:bg-[#00E5FF] text-white dark:text-[#080A10] text-[10px] font-bold uppercase tracking-wider rounded-xl hover:opacity-90 transition-all shadow-sm"
+                  className="px-4 py-2 bg-[color:var(--cyan-accent)] text-white dark:text-black text-[10px] font-bold uppercase tracking-wider rounded-lg hover:opacity-90 transition-all shadow-sm"
                 >
                   Save Settings
                 </button>

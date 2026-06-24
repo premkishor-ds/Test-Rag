@@ -357,23 +357,32 @@ export default function StockScreener() {
           <div className="bg-white border border-slate-200 dark:bg-[#0E121E]/80 dark:border-[#1E2538] rounded-xl overflow-hidden shadow-sm dark:shadow-xl transition-colors duration-200">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-100 dark:border-[#1E2538] text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider bg-slate-50/50 dark:bg-[#0F1322]/50">
-                    <th className="py-3.5 px-5">Symbol</th>
-                    <th className="py-3.5 px-5">Company Name</th>
-                    <th className="py-3.5 px-5">Sector</th>
-                    <th className="py-3.5 px-5">P/E</th>
-                    <th className="py-3.5 px-5">ROCE</th>
-                    <th className="py-3.5 px-5">ROE</th>
-                    <th className="py-3.5 px-5">Rev Growth</th>
-                    <th className="py-3.5 px-5 text-right font-bold">Trend Profile</th>
+                <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#1E1E1E]">
+                  <tr className="border-b border-slate-200 dark:border-[#2D2D2D] text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider bg-slate-50 dark:bg-[#1E1E1E]">
+                    <th className="py-3 px-5 bg-slate-100 dark:bg-[#1E1E1E]">Symbol</th>
+                    <th className="py-3 px-5 bg-slate-100 dark:bg-[#1E1E1E]">Company Name</th>
+                    <th className="py-3 px-5 bg-slate-100 dark:bg-[#1E1E1E]">Sector</th>
+                    <th className="py-3 px-5 bg-slate-100 dark:bg-[#1E1E1E]">P/E</th>
+                    <th className="py-3 px-5 bg-slate-100 dark:bg-[#1E1E1E]">ROCE</th>
+                    <th className="py-3 px-5 bg-slate-100 dark:bg-[#1E1E1E]">ROE</th>
+                    <th className="py-3 px-5 bg-slate-100 dark:bg-[#1E1E1E]">Rev Growth</th>
+                    <th className="py-3 px-5 text-right font-bold bg-slate-100 dark:bg-[#1E1E1E]">Trend Profile</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-[#1E2538]/40">
                   {loading ? (
-                    <tr>
-                      <td colSpan={8} className="py-16 text-center text-sm font-medium text-slate-400 dark:text-slate-500">Querying and filtering active database stocks...</td>
-                    </tr>
+                    Array.from({ length: 8 }).map((_, idx) => (
+                      <tr key={idx}>
+                        <td className="py-4 px-5"><div className="h-4 w-12 shimmer-skeleton rounded"></div></td>
+                        <td className="py-4 px-5"><div className="h-4 w-32 shimmer-skeleton rounded"></div></td>
+                        <td className="py-4 px-5"><div className="h-4 w-20 shimmer-skeleton rounded"></div></td>
+                        <td className="py-4 px-5"><div className="h-4 w-10 shimmer-skeleton rounded"></div></td>
+                        <td className="py-4 px-5"><div className="h-4 w-12 shimmer-skeleton rounded"></div></td>
+                        <td className="py-4 px-5"><div className="h-4 w-12 shimmer-skeleton rounded"></div></td>
+                        <td className="py-4 px-5"><div className="h-4 w-16 shimmer-skeleton rounded"></div></td>
+                        <td className="py-4 px-5 text-right flex justify-end"><div className="h-5 w-16 shimmer-skeleton rounded"></div></td>
+                      </tr>
+                    ))
                   ) : results.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="py-16 text-center text-sm font-medium text-slate-400 dark:text-slate-500">

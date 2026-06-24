@@ -144,10 +144,32 @@ export default function CompareDashboard() {
       </div>
 
       {/* Comparison results */}
-      {comparison && (
+      {loading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Quantitative Indicators Shimmer */}
+          <div className="bg-white border border-slate-200 dark:bg-[#1E1E1E] dark:border-[#2D2D2D] p-6 rounded-2xl shadow-sm space-y-4">
+            <div className="h-5 w-48 shimmer-skeleton rounded mb-2"></div>
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="py-2.5 flex justify-between">
+                <div className="h-4 w-28 shimmer-skeleton rounded"></div>
+                <div className="h-4 w-36 shimmer-skeleton rounded"></div>
+              </div>
+            ))}
+          </div>
+          {/* Charts Shimmer */}
+          <div className="bg-white border border-slate-200 dark:bg-[#1E1E1E] dark:border-[#2D2D2D] p-6 rounded-2xl shadow-sm space-y-6">
+            <div>
+              <div className="h-5 w-40 shimmer-skeleton rounded mb-2"></div>
+              <div className="h-4 w-56 shimmer-skeleton rounded"></div>
+            </div>
+            <div className="h-48 w-full shimmer-skeleton rounded"></div>
+            <div className="h-48 w-full shimmer-skeleton rounded"></div>
+          </div>
+        </div>
+      ) : comparison && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Quantitative Indicators */}
-          <div className="bg-white border border-slate-200 dark:bg-[#0E121E]/60 dark:border-[#1E2538] p-6 rounded-2xl shadow-sm">
+          <div className="bg-white border border-slate-200 dark:bg-[#1E1E1E] dark:border-[#2D2D2D] p-6 rounded-2xl shadow-sm">
             <h3 className="text-sm font-extrabold mb-4 flex items-center space-x-2">
               <BarChart2 className="h-4 w-4 text-blue-500" />
               <span>Valuation & Metrics Benchmarking</span>
@@ -265,8 +287,26 @@ export default function CompareDashboard() {
           </button>
         </div>
 
-        {mptResult && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-slate-100 dark:border-[#1E2538] pt-6 mt-4">
+        {mptLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-slate-100 dark:border-[#2D2D2D] pt-6 mt-4">
+            <div className="space-y-4">
+              <div className="h-4 w-44 shimmer-skeleton rounded mb-2"></div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="h-16 shimmer-skeleton rounded-xl"></div>
+                <div className="h-16 shimmer-skeleton rounded-xl"></div>
+                <div className="h-16 shimmer-skeleton rounded-xl"></div>
+              </div>
+              <div className="space-y-2.5 mt-4">
+                <div className="h-4 w-28 shimmer-skeleton rounded"></div>
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-4 w-full shimmer-skeleton rounded"></div>
+                ))}
+              </div>
+            </div>
+            <div className="h-60 w-full shimmer-skeleton rounded-xl"></div>
+          </div>
+        ) : mptResult && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-slate-100 dark:border-[#2D2D2D] pt-6 mt-4">
             {/* Optimization Stats */}
             <div className="space-y-4">
               <h3 className="text-xs font-black uppercase text-slate-400 tracking-wide flex items-center space-x-1">

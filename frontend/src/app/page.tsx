@@ -169,9 +169,15 @@ export default function Dashboard() {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-[#2D2D2D] text-slate-900 dark:text-slate-350">
                 {loading ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-xs text-slate-400">Loading dynamic database tickers...</td>
-                  </tr>
+                  Array.from({ length: 5 }).map((_, idx) => (
+                    <tr key={idx}>
+                      <td className="px-6 py-4"><div className="h-4 w-12 shimmer-skeleton rounded"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 w-32 shimmer-skeleton rounded"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 w-20 shimmer-skeleton rounded"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 w-24 shimmer-skeleton rounded"></div></td>
+                      <td className="px-6 py-4 text-right flex justify-end space-x-2 items-center"><div className="h-6 w-16 shimmer-skeleton rounded"></div><div className="h-6 w-6 shimmer-skeleton rounded"></div></td>
+                    </tr>
+                  ))
                 ) : filteredStocks.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-xs text-slate-400">

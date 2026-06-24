@@ -42,11 +42,11 @@ export default function Sidebar() {
   }
 
   return (
-    <div className="w-64 bg-[#090D1A] text-slate-300 border-r border-[#151D36] flex flex-col h-screen flex-shrink-0 select-none">
+    <div className="w-64 bg-slate-100 dark:bg-[#1E1E1E] text-slate-800 dark:text-[#E0E0E0] border-r border-slate-200 dark:border-[#2D2D2D] flex flex-col h-screen flex-shrink-0 select-none transition-colors duration-200">
       {/* Brand logo */}
-      <div className="flex items-center space-x-2 px-6 py-5 border-b border-[#151D36]">
-        <Sparkles className="h-5 w-5 text-[#00E5FF] animate-pulse" />
-        <span className="font-black text-sm tracking-widest text-white uppercase">Equity.AI Command</span>
+      <div className="flex items-center space-x-2 px-6 py-5 border-b border-slate-200 dark:border-[#2D2D2D]">
+        <Sparkles className="h-5 w-5 text-blue-600 dark:text-[#00E5FF] animate-pulse" />
+        <span className="font-black text-sm tracking-widest text-slate-900 dark:text-white uppercase">Equity.AI Command</span>
       </div>
 
       {/* Nav Links */}
@@ -61,11 +61,11 @@ export default function Sidebar() {
               href={link.href}
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-black tracking-wider uppercase transition-all duration-200 ${
                 isActive
-                  ? "bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/20 shadow-[0_0_15px_rgba(0,229,255,0.1)]"
-                  : "hover:bg-slate-800/40 hover:text-white border border-transparent"
+                  ? "bg-blue-600/10 dark:bg-blue-500/10 text-blue-600 dark:text-[#00E5FF] border border-blue-600/20 dark:border-[#00E5FF]/20 shadow-[0_0_15px_rgba(0,229,255,0.05)]"
+                  : "hover:bg-slate-200/50 dark:hover:bg-[#2D2D2D]/50 hover:text-slate-950 dark:hover:text-white border border-transparent"
               }`}
             >
-              <Icon className={`h-4.5 w-4.5 ${isActive ? "text-[#00E5FF]" : "text-slate-400"}`} />
+              <Icon className={`h-4.5 w-4.5 ${isActive ? "text-blue-600 dark:text-[#00E5FF]" : "text-slate-500 dark:text-slate-400"}`} />
               <span>{link.name}</span>
             </Link>
           );
@@ -73,7 +73,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer footer */}
-      <div className="p-4 border-t border-[#151D36] text-[10px] text-center text-slate-500 font-bold uppercase tracking-wider">
+      <div className="p-4 border-t border-slate-200 dark:border-[#2D2D2D] text-[10px] text-center text-slate-500 font-bold uppercase tracking-wider">
         Local Stack Engine v1.2
       </div>
     </div>

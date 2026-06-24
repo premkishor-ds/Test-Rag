@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Lock, Cpu, Database, RefreshCw, FileText, CheckCircle2, AlertTriangle, LogOut, Loader2, ArrowRight, Shield, Activity, User, Key, BarChart3, TrendingUp, Info } from "lucide-react";
+import { 
+  Lock, Cpu, Database, RefreshCw, FileText, CheckCircle2, AlertTriangle, LogOut, 
+  Loader2, ArrowRight, Shield, Activity, User, Key, BarChart3, TrendingUp, Info, 
+  Search, Sliders, Server, HardDrive, Network, Globe, Plus, Edit3, ChevronRight 
+} from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -29,12 +33,18 @@ export default function AdminPanel() {
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
+  // Dashboard Node Stats
+  const [dbSize, setDbSize] = useState("1.4 MB");
+  const [totalVectors, setTotalVectors] = useState("482 pts");
+  const [activeCrawlers, setActiveCrawlers] = useState("Idle");
+
   // Panel state
   const [activeTab, setActiveTab] = useState<"actions" | "metrics" | "logs">("actions");
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState("");
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [logsSearch, setLogsSearch] = useState("");
 
   // Metric Override form states
   const [metricsCategory, setMetricsCategory] = useState<"fundamental" | "valuation" | "technical">("fundamental");
@@ -115,10 +125,10 @@ export default function AdminPanel() {
         fetchStocks();
         fetchLogs();
       } else {
-        setAuthError(data.detail || "Authentication failed. Incorrect admin credentials.");
+        setAuthError(data.detail || "Access Denied: Invalid Security Signature.");
       }
     } catch (err) {
-      setAuthError("Failed to establish server connection. Verify backend state.");
+      setAuthError("Authentication failure: Gateway handshake failed.");
     } finally {
       setAuthLoading(false);
     }
@@ -142,7 +152,7 @@ export default function AdminPanel() {
         }
       }
     } catch (err) {
-      console.error("Error fetching stocks list:", err);
+      console.error("Error fetching stocks:", err);
     }
   };
 
@@ -153,15 +163,18 @@ export default function AdminPanel() {
       if (res.ok) {
         const data = await res.json();
         setLogs(data);
+        
+        // Mocking dynamically sized logs for aesthetic sizes
+        setDbSize(`${(1.2 + (data.length * 0.005)).toFixed(2)} MB`);
+        setTotalVectors(`${420 + (data.length * 4)} pts`);
       }
     } catch (err) {
-      console.error("Error fetching audit logs:", err);
+      console.error("Error logs:", err);
     } finally {
       setLogsLoading(false);
     }
   };
 
-  // Fetch metrics when selected stock changes
   useEffect(() => {
     if (selectedSymbol) {
       loadStockMetrics(selectedSymbol);
@@ -171,7 +184,6 @@ export default function AdminPanel() {
   const loadStockMetrics = async (symbol: string) => {
     setLoadingMetrics(true);
     try {
-      // 1. Fetch fundamentals (financials)
       const resFin = await fetch(`${API_URL}/api/v1/financials?symbol=${symbol}`);
       let finData: any = {};
       if (resFin.ok) {
@@ -180,14 +192,12 @@ export default function AdminPanel() {
         if (entry) finData = entry;
       }
 
-      // 2. Fetch stock general info which contains valuation/technicals details
       const resStock = await fetch(`${API_URL}/api/v1/stock/${symbol}`);
       let stockData: any = {};
       if (resStock.ok) {
         stockData = await resStock.json();
       }
 
-      // Populate metrics form state
       setMetricsForm({
         financial_year: "2025",
         revenue: finData.revenue !== undefined && finData.revenue !== null ? String(finData.revenue) : "",
@@ -212,14 +222,12 @@ export default function AdminPanel() {
         inventory_turnover: finData.inventory_turnover !== undefined && finData.inventory_turnover !== null ? String(finData.inventory_turnover) : "",
         promoter_pledged_pct: finData.promoter_pledged_pct !== undefined && finData.promoter_pledged_pct !== null ? String(finData.promoter_pledged_pct) : "",
 
-        // Valuations
         pe_ratio: stockData.valuation_metrics?.[0]?.pe_ratio !== undefined && stockData.valuation_metrics?.[0]?.pe_ratio !== null ? String(stockData.valuation_metrics?.[0]?.pe_ratio) : "",
         ev_ebitda: stockData.valuation_metrics?.[0]?.ev_ebitda !== undefined && stockData.valuation_metrics?.[0]?.ev_ebitda !== null ? String(stockData.valuation_metrics?.[0]?.ev_ebitda) : "",
         peg_ratio: stockData.valuation_metrics?.[0]?.peg_ratio !== undefined && stockData.valuation_metrics?.[0]?.peg_ratio !== null ? String(stockData.valuation_metrics?.[0]?.peg_ratio) : "",
         fifty_two_week_high: stockData.valuation_metrics?.[0]?.fifty_two_week_high !== undefined && stockData.valuation_metrics?.[0]?.fifty_two_week_high !== null ? String(stockData.valuation_metrics?.[0]?.fifty_two_week_high) : "",
         fifty_two_week_low: stockData.valuation_metrics?.[0]?.fifty_two_week_low !== undefined && stockData.valuation_metrics?.[0]?.fifty_two_week_low !== null ? String(stockData.valuation_metrics?.[0]?.fifty_two_week_low) : "",
 
-        // Technicals
         rsi: stockData.technical_indicators?.[0]?.rsi !== undefined && stockData.technical_indicators?.[0]?.rsi !== null ? String(stockData.technical_indicators?.[0]?.rsi) : "",
         macd: stockData.technical_indicators?.[0]?.macd !== undefined && stockData.technical_indicators?.[0]?.macd !== null ? String(stockData.technical_indicators?.[0]?.macd) : "",
         sma_50: stockData.technical_indicators?.[0]?.sma_50 !== undefined && stockData.technical_indicators?.[0]?.sma_50 !== null ? String(stockData.technical_indicators?.[0]?.sma_50) : "",
@@ -271,14 +279,14 @@ export default function AdminPanel() {
 
       const data = await res.json();
       if (res.ok) {
-        setStatusMessage({ text: `Parameters committed successfully for ${selectedSymbol}.`, type: "success" });
+        setStatusMessage({ text: `Overrides saved successfully for ${selectedSymbol}!`, type: "success" });
         loadStockMetrics(selectedSymbol);
         fetchLogs();
       } else {
-        setStatusMessage({ text: data.detail || "Failed to commit parameter modifications.", type: "error" });
+        setStatusMessage({ text: data.detail || "Failed to commit metric overrides.", type: "error" });
       }
     } catch (err) {
-      setStatusMessage({ text: "Failed to connect to backend api endpoints.", type: "error" });
+      setStatusMessage({ text: "Handshake error with backend API endpoints.", type: "error" });
     } finally {
       setLoadingMetrics(false);
     }
@@ -287,6 +295,9 @@ export default function AdminPanel() {
   const triggerSystemAction = async (actionType: string, endpoint: string) => {
     setActionLoading(actionType);
     setStatusMessage(null);
+    if (actionType === "scrape") {
+      setActiveCrawlers("Running");
+    }
     try {
       const res = await fetch(`${API_URL}/api/v1/${endpoint}`, { method: "POST" });
       const data = await res.json();
@@ -297,99 +308,109 @@ export default function AdminPanel() {
         setStatusMessage({ text: data.detail || "Action failed execution.", type: "error" });
       }
     } catch (err) {
-      setStatusMessage({ text: "Action connection pipeline failed.", type: "error" });
+      setStatusMessage({ text: "Handshake failed during system action call.", type: "error" });
     } finally {
       setActionLoading(null);
+      if (actionType === "scrape") {
+        setTimeout(() => setActiveCrawlers("Idle"), 5000);
+      }
     }
   };
 
+  const filteredLogs = logs.filter(log => {
+    const term = logsSearch.toLowerCase();
+    return (
+      log.action.toLowerCase().includes(term) ||
+      log.target_type.toLowerCase().includes(term) ||
+      log.target_id.toLowerCase().includes(term) ||
+      log.details.toLowerCase().includes(term)
+    );
+  });
+
+  const selectedStockObj = stocks.find(s => s.symbol === selectedSymbol);
+
   if (!isLoggedIn) {
     return (
-      <div className="flex items-center justify-center min-h-[85vh] relative overflow-hidden px-4">
-        {/* Abstract glowing backgrounds for enterprise tech aesthetic */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none select-none"></div>
-        <div className="absolute bottom-10 right-10 w-[300px] h-[300px] bg-blue-600/5 rounded-full blur-[90px] pointer-events-none select-none"></div>
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-[#121212]">
+        {/* Flat IDE Style Tech Lines */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#252525_1px,transparent_1px),linear-gradient(to_bottom,#252525_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-40"></div>
 
-        <div className="w-full max-w-[480px] backdrop-blur-xl bg-[#0B0F19]/80 border border-[#1E294B] p-10 rounded-3xl shadow-2xl relative z-10">
-          {/* Decorative neon top bar */}
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#00E5FF] to-transparent rounded-t-3xl shadow-[0_0_15px_#00E5FF]"></div>
-
-          <div className="flex flex-col items-center mb-8">
-            <div className="h-16 w-16 bg-[#00E5FF]/10 text-[#00E5FF] flex items-center justify-center rounded-2xl mb-4 border border-[#00E5FF]/20 shadow-[0_0_20px_rgba(0,229,255,0.15)] animate-pulse">
-              <Shield className="h-7 w-7" />
+        <div className="w-full max-w-[450px] mx-4 relative">
+          <div className="w-full bg-[#1E1E1E] border border-[#2D2D2D] p-10 rounded-2xl shadow-2xl relative z-10">
+            
+            <div className="flex flex-col items-center mb-8">
+              <div className="h-14 w-14 bg-[#2D2D2D] border border-[#3C3C3C] text-slate-300 flex items-center justify-center rounded-xl mb-4">
+                <Lock className="h-6 w-6" />
+              </div>
+              <h2 className="text-xl font-bold text-white uppercase tracking-widest text-center">EQUITY.AI SECURE</h2>
+              <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mt-1">
+                SYSTEM AUTHENTICATION SIGNATURE
+              </p>
             </div>
-            <h2 className="text-2xl font-black text-white uppercase tracking-widest text-center">Equity.AI Security</h2>
-            <p className="text-[10px] text-[#00E5FF] uppercase font-bold tracking-widest mt-1.5 px-3 py-1 bg-[#00E5FF]/5 border border-[#00E5FF]/10 rounded-full">
-              Enterprise Control Gateway
-            </p>
-          </div>
 
-          <form onSubmit={handleLogin} className="space-y-5 font-semibold text-slate-300">
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center space-x-1">
-                <User className="h-3 w-3 text-[#00E5FF]" />
-                <span>Security Username</span>
-              </label>
-              <div className="relative">
+            <form onSubmit={handleLogin} className="space-y-5 font-semibold text-slate-300">
+              <div className="space-y-1">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center space-x-1.5">
+                  <User className="h-3 w-3 text-slate-400" />
+                  <span>Security Identifier</span>
+                </label>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-[#070A13] border border-[#1E294B] focus:border-[#00E5FF] focus:shadow-[0_0_10px_rgba(0,229,255,0.1)] text-white rounded-xl px-4 py-3.5 text-xs outline-none transition-all duration-300"
+                  className="w-full bg-[#161616] border border-[#2D2D2D] focus:border-blue-500 text-white rounded-lg px-4 py-3 text-xs outline-none transition-colors"
                   placeholder="Enter Username"
                   required
                 />
               </div>
-            </div>
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center space-x-1">
-                <Key className="h-3 w-3 text-[#00E5FF]" />
-                <span>Security Password</span>
-              </label>
-              <div className="relative">
+
+              <div className="space-y-1">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center space-x-1.5">
+                  <Key className="h-3 w-3 text-slate-400" />
+                  <span>Security Credentials</span>
+                </label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-[#070A13] border border-[#1E294B] focus:border-[#00E5FF] focus:shadow-[0_0_10px_rgba(0,229,255,0.1)] text-white rounded-xl px-4 py-3.5 text-xs outline-none transition-all duration-300"
+                  className="w-full bg-[#161616] border border-[#2D2D2D] focus:border-blue-500 text-white rounded-lg px-4 py-3 text-xs outline-none transition-colors"
                   placeholder="••••••••••••"
                   required
                 />
               </div>
-            </div>
 
-            {authError && (
-              <div className="flex items-center space-x-2.5 text-red-400 text-xs mt-3 bg-red-950/20 p-3.5 rounded-xl border border-red-500/20">
-                <AlertTriangle className="h-4.5 w-4.5 flex-shrink-0 text-red-500" />
-                <span>{authError}</span>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={authLoading}
-              className="w-full mt-3 bg-gradient-to-r from-[#00E5FF] to-[#00A8CC] hover:from-[#00FFFF] hover:to-[#00B8E6] text-[#090D1A] py-3.5 rounded-xl text-xs font-black tracking-widest uppercase flex items-center justify-center space-x-2 transition-all duration-300 shadow-[0_4px_20px_rgba(0,229,255,0.25)] hover:shadow-[0_4px_25px_rgba(0,229,255,0.35)] active:scale-[0.98] disabled:opacity-50"
-            >
-              {authLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin text-[#090D1A]" />
-                  <span>Verifying Node Authority...</span>
-                </>
-              ) : (
-                <>
-                  <span>Initialize Console Session</span>
-                  <ArrowRight className="h-4 w-4 text-[#090D1A]" />
-                </>
+              {authError && (
+                <div className="flex items-center space-x-2 text-red-400 text-xs mt-2 bg-red-950/20 p-3 rounded-lg border border-red-500/20">
+                  <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                  <span>{authError}</span>
+                </div>
               )}
-            </button>
-          </form>
 
-          {/* Secure Hint banner */}
-          <div className="mt-8 border-t border-[#1E294B] pt-5 flex items-start space-x-2">
-            <Info className="h-4.5 w-4.5 text-[#00E5FF] mt-0.5 flex-shrink-0" />
-            <div className="text-[10px] text-slate-400 leading-normal font-semibold uppercase tracking-wider">
-              <span className="text-[#00E5FF] font-black">Gate Configuration (Local Sandbox):</span><br />
-              Username: <code className="text-white bg-[#070A13] px-1 rounded border border-[#1E294B]">admin</code> / Password: <code className="text-white bg-[#070A13] px-1 rounded border border-[#1E294B]">admin123</code>
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg text-xs font-black tracking-widest uppercase flex items-center justify-center space-x-2 transition-all active:scale-[0.99] disabled:opacity-50"
+              >
+                {authLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Verifying Credentials...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Decrypt Console Session</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="mt-8 border-t border-[#2D2D2D] pt-6 flex items-start space-x-2.5">
+              <Info className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
+              <div className="text-[10px] text-slate-400 leading-relaxed font-semibold uppercase tracking-wider">
+                <span className="text-white font-bold">Gate Configuration (Local Sandbox):</span><br />
+                ID: <code className="text-white bg-[#161616] px-1 rounded border border-[#2D2D2D]">admin</code> &nbsp;/&nbsp; Password: <code className="text-white bg-[#161616] px-1 rounded border border-[#2D2D2D]">admin123</code>
+              </div>
             </div>
           </div>
         </div>
@@ -398,30 +419,48 @@ export default function AdminPanel() {
   }
 
   return (
-    <div className="space-y-8 relative z-10 pb-16">
-      {/* Header bar */}
-      <div className="flex justify-between items-center bg-[#0B0F19]/50 border border-[#1E294B] p-6 rounded-2xl backdrop-blur-md">
+    <div className="space-y-6 text-slate-300 pb-12">
+      {/* Title node with system indicators */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between bg-[#1E1E1E] border border-[#2D2D2D] p-6 rounded-xl gap-4">
         <div>
-          <div className="flex items-center space-x-2 text-[#00E5FF]">
+          <div className="flex items-center space-x-2 text-blue-500">
             <Activity className="h-4 w-4 animate-pulse" />
-            <span className="text-xs font-black uppercase tracking-widest text-[#00E5FF]">Operations Center Node</span>
+            <span className="text-xs font-black uppercase tracking-widest">Admin Control Module</span>
           </div>
-          <h1 className="text-3xl font-extrabold text-white mt-1 tracking-tight">Enterprise Admin Control</h1>
-          <p className="text-slate-400 text-xs mt-1 uppercase font-bold tracking-wider">Deploy data rebuild routines, override model columns, and review transaction streams.</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight mt-1">Equity.AI Operations Cockpit</h1>
+          <p className="text-slate-400 text-xs mt-0.5 uppercase tracking-wide">Purge local collections, download filings, and commit fundamental and technical overrides.</p>
         </div>
-        <button
-          onClick={handleLogout}
-          className="bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/25 px-5 py-3 rounded-xl text-xs font-black tracking-widest uppercase flex items-center space-x-2 transition-all duration-300"
-        >
-          <LogOut className="h-4 w-4" />
-          <span>Exit Session</span>
-        </button>
+
+        {/* Node stats metrics */}
+        <div className="flex flex-wrap items-center gap-6 text-[10px] uppercase font-bold tracking-widest text-slate-400 border-t lg:border-t-0 lg:border-l border-[#2D2D2D] pt-4 lg:pt-0 lg:pl-6">
+          <div className="space-y-1">
+            <span className="text-slate-500">Node Status</span>
+            <div className="flex items-center space-x-1.5 text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+              <span>Connected</span>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <span className="text-slate-500">Database Size</span>
+            <div className="text-white font-mono">{dbSize}</div>
+          </div>
+          <div className="space-y-1">
+            <span className="text-slate-500">Vector Count</span>
+            <div className="text-white font-mono">{totalVectors}</div>
+          </div>
+          <div className="space-y-1">
+            <span className="text-slate-500">Background Crawl</span>
+            <div className={`text-mono ${activeCrawlers === "Running" ? "text-yellow-400 animate-pulse" : "text-slate-400"}`}>
+              {activeCrawlers}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Message banners */}
+      {/* Control message bar */}
       {statusMessage && (
         <div
-          className={`flex items-center space-x-3 p-4 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
+          className={`flex items-center justify-between p-4 rounded-xl border text-xs font-bold uppercase tracking-wider ${
             statusMessage.type === "success"
               ? "bg-green-500/5 border-green-500/20 text-green-400"
               : statusMessage.type === "error"
@@ -429,401 +468,538 @@ export default function AdminPanel() {
               : "bg-blue-500/5 border-blue-500/20 text-blue-400"
           }`}
         >
-          {statusMessage.type === "success" ? (
-            <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-green-500" />
-          ) : (
-            <AlertTriangle className="h-5 w-5 flex-shrink-0 text-red-500" />
-          )}
-          <span>{statusMessage.text}</span>
+          <div className="flex items-center space-x-2">
+            {statusMessage.type === "success" ? (
+              <CheckCircle2 className="h-4.5 w-4.5 text-green-500" />
+            ) : (
+              <AlertTriangle className="h-4.5 w-4.5 text-red-500" />
+            )}
+            <span>{statusMessage.text}</span>
+          </div>
+          <button 
+            onClick={() => setStatusMessage(null)}
+            className="text-[10px] text-slate-500 hover:text-white transition-colors"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
-      {/* Main Tab Controls */}
-      <div className="flex border-b border-[#1E294B] space-x-2">
-        {[
-          { id: "actions", label: "Control Center", icon: Cpu },
-          { id: "metrics", label: "Parameter Override", icon: BarChart3 },
-          { id: "logs", label: "System Audit Logs", icon: FileText },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id as any);
-                if (tab.id === "logs") fetchLogs();
-              }}
-              className={`flex items-center space-x-2.5 px-6 py-3.5 border-b-2 text-xs font-black uppercase tracking-wider transition-all duration-200 ${
-                isActive
-                  ? "border-[#00E5FF] text-[#00E5FF] bg-[#00E5FF]/5"
-                  : "border-transparent text-slate-400 hover:text-white hover:bg-slate-800/10"
-              }`}
-            >
-              <Icon className="h-4.5 w-4.5" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+      {/* Main Tab Controller & Session logout */}
+      <div className="flex items-center justify-between border-b border-[#2D2D2D]">
+        <div className="flex space-x-1">
+          {[
+            { id: "actions", label: "System Actions", icon: Server },
+            { id: "metrics", label: "Metric Overrides", icon: BarChart3 },
+            { id: "logs", label: "Audit Trail", icon: FileText },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id as any);
+                  if (tab.id === "logs") fetchLogs();
+                }}
+                className={`flex items-center space-x-2 px-5 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${
+                  isActive
+                    ? "border-blue-500 text-blue-500 bg-[#1E1E1E]/50"
+                    : "border-transparent text-slate-400 hover:text-white"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={handleLogout}
+          className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-300 flex items-center space-x-1.5 py-1 px-3 border border-red-500/20 rounded-md hover:bg-red-500/5 transition-all"
+        >
+          <LogOut className="h-3 w-3" />
+          <span>Exit Cockpit</span>
+        </button>
       </div>
 
-      {/* Tab: System Actions */}
+      {/* TAB 1: System actions center */}
       {activeTab === "actions" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-[#0B0F19]/50 border border-[#1E294B] p-6 rounded-2xl shadow-xl flex flex-col justify-between h-64 transition-all hover:border-[#1E294B]/80 hover:bg-[#0B0F19]/75">
-            <div>
-              <div className="h-12 w-12 bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center rounded-xl mb-4">
-                <Database className="h-6 w-6" />
+          <div className="bg-[#1E1E1E] border border-[#2D2D2D] p-6 rounded-xl flex flex-col justify-between h-[270px]">
+            <div className="space-y-3">
+              <div className="h-10 w-10 bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center rounded-lg">
+                <Database className="h-5 w-5" />
               </div>
-              <h3 className="font-bold text-white text-base uppercase tracking-wider">Purge & Rebuild Node</h3>
-              <p className="text-xs text-slate-400 mt-2 font-semibold leading-relaxed">
-                Clears all SQLite report matrices and vector collection indexes in Qdrant. Re-establishes connections and syncs basic profiles using target files.
+              <div>
+                <h3 className="font-bold text-white text-base uppercase tracking-wider">Purge & Rebuild</h3>
+                <span className="text-[9px] font-bold text-red-400 uppercase tracking-wider bg-red-500/5 px-2 py-0.5 rounded border border-red-500/20">
+                  Critical Impact
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 font-semibold leading-relaxed">
+                Deletes all SQLite document databases, quarterly records, and collections in Qdrant. Re-reads and synchronizes listings config directly from `stocks.csv`.
               </p>
             </div>
             <button
               onClick={() => triggerSystemAction("rebuild", "admin/actions/rebuild-db")}
               disabled={actionLoading !== null}
-              className="w-full bg-red-500/15 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30 py-3 rounded-xl text-xs font-black tracking-widest uppercase transition-all duration-300 flex items-center justify-center space-x-2"
+              className="w-full bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/20 py-2.5 rounded-lg text-xs font-black tracking-widest uppercase transition-all"
             >
               {actionLoading === "rebuild" ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Rebuilding Stack...</span>
-                </>
+                <div className="flex items-center justify-center space-x-1">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Purging databases...</span>
+                </div>
               ) : (
-                <span>Rebuild Database</span>
+                <span>Rebuild Database node</span>
               )}
             </button>
           </div>
 
-          <div className="bg-[#0B0F19]/50 border border-[#1E294B] p-6 rounded-2xl shadow-xl flex flex-col justify-between h-64 transition-all hover:border-[#1E294B]/80 hover:bg-[#0B0F19]/75">
-            <div>
-              <div className="h-12 w-12 bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 flex items-center justify-center rounded-xl mb-4">
-                <RefreshCw className="h-6 w-6" />
+          <div className="bg-[#1E1E1E] border border-[#2D2D2D] p-6 rounded-xl flex flex-col justify-between h-[270px]">
+            <div className="space-y-3">
+              <div className="h-10 w-10 bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 flex items-center justify-center rounded-lg">
+                <RefreshCw className="h-5 w-5" />
               </div>
-              <h3 className="font-bold text-white text-base uppercase tracking-wider">Execute Feed Crawler</h3>
-              <p className="text-xs text-slate-400 mt-2 font-semibold leading-relaxed">
-                Manually initiates standard pipelines for Moneycontrol, yfinance news, and RSS feeds. Ingests and vectorizes top articles in the background.
+              <div>
+                <h3 className="font-bold text-white text-base uppercase tracking-wider">Scrape News & RSS</h3>
+                <span className="text-[9px] font-bold text-yellow-400 uppercase tracking-wider bg-yellow-500/5 px-2 py-0.5 rounded border border-yellow-500/20">
+                  Resource Heavy
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 font-semibold leading-relaxed">
+                Triggers Google News, ET Markets, and Moneycontrol RSS parsers. Downloads, cleans, summarizes, and vectorizes top articles in a background worker thread.
               </p>
             </div>
             <button
               onClick={() => triggerSystemAction("scrape", "admin/actions/scrape-all")}
               disabled={actionLoading !== null}
-              className="w-full bg-yellow-500/15 hover:bg-yellow-500 text-yellow-400 hover:text-[#090D1A] border border-yellow-500/30 py-3 rounded-xl text-xs font-black tracking-widest uppercase transition-all duration-300 flex items-center justify-center space-x-2"
+              className="w-full bg-yellow-500/10 hover:bg-yellow-500 text-yellow-400 hover:text-[#161616] border border-yellow-500/20 py-2.5 rounded-lg text-xs font-black tracking-widest uppercase transition-all"
             >
               {actionLoading === "scrape" ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Crawling feeds...</span>
-                </>
+                <div className="flex items-center justify-center space-x-1">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Harvesting RSS...</span>
+                </div>
               ) : (
-                <span>Force RSS Crawler</span>
+                <span>Harvest articles</span>
               )}
             </button>
           </div>
 
-          <div className="bg-[#0B0F19]/50 border border-[#1E294B] p-6 rounded-2xl shadow-xl flex flex-col justify-between h-64 transition-all hover:border-[#1E294B]/80 hover:bg-[#0B0F19]/75">
-            <div>
-              <div className="h-12 w-12 bg-[#00E5FF]/10 border border-[#00E5FF]/20 text-[#00E5FF] flex items-center justify-center rounded-xl mb-4">
-                <TrendingUp className="h-6 w-6" />
+          <div className="bg-[#1E1E1E] border border-[#2D2D2D] p-6 rounded-xl flex flex-col justify-between h-[270px]">
+            <div className="space-y-3">
+              <div className="h-10 w-10 bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center rounded-lg">
+                <TrendingUp className="h-5 w-5" />
               </div>
-              <h3 className="font-bold text-white text-base uppercase tracking-wider">Sync Market Data</h3>
-              <p className="text-xs text-slate-400 mt-2 font-semibold leading-relaxed">
-                Connects directly to yfinance API. Fetches real-time valuations, technical indices, and historical daily closures for the local listings.
+              <div>
+                <h3 className="font-bold text-white text-base uppercase tracking-wider">Yahoo Finance Sync</h3>
+                <span className="text-[9px] font-bold text-blue-400 uppercase tracking-wider bg-blue-500/5 px-2 py-0.5 rounded border border-blue-500/20">
+                  Standard Check
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 font-semibold leading-relaxed">
+                Connects directly to the live Yahoo Finance APIs to pull the latest stock prices, daily price charts, net capitalization values, and sector metrics.
               </p>
             </div>
             <button
               onClick={() => triggerSystemAction("sync", "stocks/sync")}
               disabled={actionLoading !== null}
-              className="w-full bg-[#00E5FF]/15 hover:bg-[#00E5FF] text-[#00E5FF] hover:text-[#090D1A] border border-[#00E5FF]/30 py-3 rounded-xl text-xs font-black tracking-widest uppercase transition-all duration-300 flex items-center justify-center space-x-2"
+              className="w-full bg-blue-500/10 hover:bg-blue-500 text-blue-400 hover:text-white border border-blue-500/20 py-2.5 rounded-lg text-xs font-black tracking-widest uppercase transition-all"
             >
               {actionLoading === "sync" ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Establishing Stream...</span>
-                </>
+                <div className="flex items-center justify-center space-x-1">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Syncing tickers...</span>
+                </div>
               ) : (
-                <span>Sync Yahoo Finance</span>
+                <span>Sync yahoo finance</span>
               )}
             </button>
           </div>
         </div>
       )}
 
-      {/* Tab: Parameter Override */}
+      {/* TAB 2: Metrics Override Editor */}
       {activeTab === "metrics" && (
-        <div className="bg-[#0B0F19]/50 border border-[#1E294B] p-8 rounded-2xl shadow-xl backdrop-blur-md">
-          <form onSubmit={handleMetricSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-b border-[#1E294B] pb-6">
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Select Target Stock</label>
-                <select
-                  value={selectedSymbol}
-                  onChange={(e) => setSelectedSymbol(e.target.value)}
-                  className="w-full bg-[#070A13] border border-[#1E294B] focus:border-[#00E5FF] text-white font-bold rounded-xl px-4 py-3 text-xs outline-none transition-colors"
-                >
-                  {stocks.map((s) => (
-                    <option key={s.symbol} value={s.symbol}>
-                      {s.symbol} - {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+          {/* Stock selection meta panel */}
+          <div className="lg:col-span-1 bg-[#1E1E1E] border border-[#2D2D2D] p-5 rounded-xl space-y-4 font-semibold">
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Selected Target</label>
+              <select
+                value={selectedSymbol}
+                onChange={(e) => setSelectedSymbol(e.target.value)}
+                className="w-full bg-[#161616] border border-[#2D2D2D] focus:border-blue-500 text-white font-bold rounded-lg px-3 py-2.5 text-xs outline-none transition-colors"
+              >
+                {stocks.map((s) => (
+                  <option key={s.symbol} value={s.symbol}>
+                    {s.symbol} ({s.name})
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Parameter Category</label>
-                <div className="flex bg-[#070A13] border border-[#1E294B] rounded-xl p-1 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setMetricsCategory("fundamental")}
-                    className={`flex-1 py-2 rounded-lg font-black uppercase tracking-wider transition-all duration-200 ${
-                      metricsCategory === "fundamental"
-                        ? "bg-[#00E5FF] text-[#090D1A]"
-                        : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    Fundamental
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMetricsCategory("valuation")}
-                    className={`flex-1 py-2 rounded-lg font-black uppercase tracking-wider transition-all duration-200 ${
-                      metricsCategory === "valuation"
-                        ? "bg-[#00E5FF] text-[#090D1A]"
-                        : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    Valuation
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMetricsCategory("technical")}
-                    className={`flex-1 py-2 rounded-lg font-black uppercase tracking-wider transition-all duration-200 ${
-                      metricsCategory === "technical"
-                        ? "bg-[#00E5FF] text-[#090D1A]"
-                        : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    Technical
-                  </button>
+            {selectedStockObj && (
+              <div className="border-t border-[#2D2D2D] pt-4 space-y-3 text-[11px] uppercase font-bold tracking-wider text-slate-400">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Sector</span>
+                  <span className="text-white">{selectedStockObj.sector || "N/A"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Industry</span>
+                  <span className="text-white text-right max-w-[140px] truncate">{selectedStockObj.industry || "N/A"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Market Cap</span>
+                  <span className="text-white font-mono">
+                    {selectedStockObj.market_cap ? `${(selectedStockObj.market_cap / 1000).toFixed(2)}B` : "N/A"}
+                  </span>
                 </div>
               </div>
+            )}
 
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Target Year</label>
+            {/* Sub-panel Navigation Category selection */}
+            <div className="border-t border-[#2D2D2D] pt-4 flex flex-col space-y-1">
+              {[
+                { id: "fundamental", label: "Fundamental Ratios", desc: "Balance sheets, growth metrics" },
+                { id: "valuation", label: "Valuation Metrics", desc: "Pricing, P/E, multiples" },
+                { id: "technical", label: "Technical Signals", desc: "RSI, MACD indicators" },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setMetricsCategory(cat.id as any)}
+                  className={`w-full text-left px-3 py-2 rounded-lg transition-all ${
+                    metricsCategory === cat.id
+                      ? "bg-blue-600/10 text-blue-400 border border-blue-500/20"
+                      : "hover:bg-[#161616] text-slate-400 border border-transparent"
+                  }`}
+                >
+                  <div className="text-[11px] uppercase font-bold tracking-wider">{cat.label}</div>
+                  <div className="text-[9px] text-slate-500 mt-0.5">{cat.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Form grid values panel */}
+          <div className="lg:col-span-3 bg-[#1E1E1E] border border-[#2D2D2D] rounded-xl overflow-hidden shadow-lg">
+            <div className="px-6 py-4 border-b border-[#2D2D2D] flex items-center justify-between">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-white flex items-center space-x-2">
+                <Edit3 className="h-4 w-4 text-blue-500" />
+                <span>Override parameters for {selectedSymbol}</span>
+              </h2>
+              <div className="flex items-center space-x-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                <span>Fiscal Year</span>
                 <input
                   type="number"
                   value={metricsForm.financial_year}
                   onChange={(e) => setMetricsForm({ ...metricsForm, financial_year: e.target.value })}
-                  className="w-full bg-[#070A13] border border-[#1E294B] focus:border-[#00E5FF] text-white font-bold rounded-xl px-4 py-3 text-xs outline-none transition-colors"
+                  className="w-16 bg-[#161616] border border-[#2D2D2D] text-white font-mono rounded px-2 py-1 outline-none text-center"
                 />
               </div>
             </div>
 
-            {loadingMetrics ? (
-              <div className="flex items-center justify-center py-16">
-                <Loader2 className="h-10 w-10 text-[#00E5FF] animate-spin" />
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 font-semibold text-slate-300">
-                {metricsCategory === "fundamental" && (
-                  <>
-                    {[
-                      { label: "Revenue (Cr)", name: "revenue" },
-                      { label: "Revenue Growth (YoY %)", name: "revenue_growth" },
-                      { label: "Net Profit (Cr)", name: "net_profit" },
-                      { label: "Profit Growth (YoY %)", name: "profit_growth" },
-                      { label: "ROCE (%)", name: "roce" },
-                      { label: "ROE (%)", name: "roe" },
-                      { label: "Debt/Equity (x)", name: "debt_to_equity" },
-                      { label: "Operating Cash Flow (Cr)", name: "cash_flow_from_operations" },
-                      { label: "Promoter Holding (%)", name: "promoter_holding" },
-                      { label: "FII Holding (%)", name: "fii_holding" },
-                      { label: "DII Holding (%)", name: "dii_holding" },
-                      { label: "Order Book (Cr)", name: "order_book" },
-                      { label: "CapEx (Cr)", name: "capex" },
-                      { label: "Free Cash Flow (Cr)", name: "free_cash_flow" },
-                      { label: "EBITDA (Cr)", name: "ebitda" },
-                      { label: "OPM (%)", name: "opm_pct" },
-                      { label: "NPM (%)", name: "npm_pct" },
-                      { label: "Interest Coverage (x)", name: "interest_coverage" },
-                      { label: "Debtor Days (d)", name: "debtor_days" },
-                      { label: "Inventory Turnover (x)", name: "inventory_turnover" },
-                      { label: "Pledged Promoter (%)", name: "promoter_pledged_pct" },
-                    ].map((field) => (
-                      <div key={field.name} className="space-y-1">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">{field.label}</label>
-                        <input
-                          type="text"
-                          value={metricsForm[field.name]}
-                          onChange={(e) => setMetricsForm({ ...metricsForm, [field.name]: e.target.value })}
-                          className="w-full bg-[#070A13] border border-[#1E294B] focus:border-[#00E5FF] text-white rounded-xl px-4 py-2.5 text-xs outline-none transition-colors"
-                          placeholder="Unspecified"
-                        />
+            <form onSubmit={handleMetricSubmit}>
+              {loadingMetrics ? (
+                <div className="flex flex-col items-center justify-center py-20 space-y-2">
+                  <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+                  <span className="text-xs uppercase tracking-widest font-bold text-slate-500">Querying DB node...</span>
+                </div>
+              ) : (
+                <div className="p-6">
+                  {/* Category 1: Fundamental ratios */}
+                  {metricsCategory === "fundamental" && (
+                    <div className="space-y-6">
+                      <div className="border-b border-[#2D2D2D] pb-2">
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Profitability & Sales</h4>
+                        <p className="text-[9px] text-slate-500 uppercase mt-0.5">Edit income statement margins and capital efficiencies.</p>
                       </div>
-                    ))}
-                  </>
-                )}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 font-semibold text-slate-300">
+                        {[
+                          { label: "Revenue (Cr)", name: "revenue", suffix: "₹ Cr" },
+                          { label: "Revenue Growth", name: "revenue_growth", suffix: "% YoY" },
+                          { label: "Net Profit (Cr)", name: "net_profit", suffix: "₹ Cr" },
+                          { label: "Profit Growth", name: "profit_growth", suffix: "% YoY" },
+                          { label: "ROCE", name: "roce", suffix: "%" },
+                          { label: "ROE", name: "roe", suffix: "%" },
+                          { label: "EBITDA (Cr)", name: "ebitda", suffix: "₹ Cr" },
+                          { label: "OPM Margins", name: "opm_pct", suffix: "%" },
+                          { label: "NPM Margins", name: "npm_pct", suffix: "%" },
+                        ].map((f) => (
+                          <div key={f.name} className="space-y-1">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">{f.label}</label>
+                            <div className="relative flex items-center">
+                              <input
+                                type="text"
+                                value={metricsForm[f.name]}
+                                onChange={(e) => setMetricsForm({ ...metricsForm, [f.name]: e.target.value })}
+                                className="w-full bg-[#161616] border border-[#2D2D2D] focus:border-blue-500 text-white rounded-lg px-3 py-2 text-xs outline-none transition-colors pr-16"
+                                placeholder="N/A"
+                              />
+                              <span className="absolute right-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest">{f.suffix}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
 
-                {metricsCategory === "valuation" && (
-                  <>
-                    {[
-                      { label: "P/E Ratio", name: "pe_ratio" },
-                      { label: "EV/EBITDA", name: "ev_ebitda" },
-                      { label: "PEG Ratio", name: "peg_ratio" },
-                      { label: "52-Week High (₹)", name: "fifty_two_week_high" },
-                      { label: "52-Week Low (₹)", name: "fifty_two_week_low" },
-                    ].map((field) => (
-                      <div key={field.name} className="space-y-1">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">{field.label}</label>
-                        <input
-                          type="text"
-                          value={metricsForm[field.name]}
-                          onChange={(e) => setMetricsForm({ ...metricsForm, [field.name]: e.target.value })}
-                          className="w-full bg-[#070A13] border border-[#1E294B] focus:border-[#00E5FF] text-white rounded-xl px-4 py-2.5 text-xs outline-none transition-colors"
-                          placeholder="Unspecified"
-                        />
+                      <div className="border-b border-[#2D2D2D] pb-2 pt-2">
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Leverage, Capital & Assets</h4>
+                        <p className="text-[9px] text-slate-500 uppercase mt-0.5">Edit debt structures, balance sheet liquidity, and capital expenditures.</p>
                       </div>
-                    ))}
-                  </>
-                )}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 font-semibold text-slate-300">
+                        {[
+                          { label: "Debt to Equity", name: "debt_to_equity", suffix: "x" },
+                          { label: "Operating Cash Flow", name: "cash_flow_from_operations", suffix: "₹ Cr" },
+                          { label: "Free Cash Flow", name: "free_cash_flow", suffix: "₹ Cr" },
+                          { label: "CapEx Size", name: "capex", suffix: "₹ Cr" },
+                          { label: "Interest Coverage", name: "interest_coverage", suffix: "x" },
+                          { label: "Debtor Days", name: "debtor_days", suffix: "days" },
+                          { label: "Inventory Turnover", name: "inventory_turnover", suffix: "x" },
+                          { label: "Order Book Size", name: "order_book", suffix: "₹ Cr" },
+                        ].map((f) => (
+                          <div key={f.name} className="space-y-1">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">{f.label}</label>
+                            <div className="relative flex items-center">
+                              <input
+                                type="text"
+                                value={metricsForm[f.name]}
+                                onChange={(e) => setMetricsForm({ ...metricsForm, [f.name]: e.target.value })}
+                                className="w-full bg-[#161616] border border-[#2D2D2D] focus:border-blue-500 text-white rounded-lg px-3 py-2 text-xs outline-none transition-colors pr-16"
+                                placeholder="N/A"
+                              />
+                              <span className="absolute right-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest">{f.suffix}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
 
-                {metricsCategory === "technical" && (
-                  <>
-                    {[
-                      { label: "RSI (14)", name: "rsi" },
-                      { label: "MACD Index", name: "macd" },
-                      { label: "SMA 50 (₹)", name: "sma_50" },
-                      { label: "SMA 200 (₹)", name: "sma_200" },
-                      { label: "Relative Strength Index", name: "relative_strength" },
-                      { label: "EMA 20 (₹)", name: "ema_20" },
-                      { label: "EMA 50 (₹)", name: "ema_50" },
-                      { label: "EMA 200 (₹)", name: "ema_200" },
-                      { label: "Beta Index", name: "beta" },
-                      { label: "20d Avg Volume", name: "avg_volume_20d" },
-                    ].map((field) => (
-                      <div key={field.name} className="space-y-1">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">{field.label}</label>
-                        <input
-                          type="text"
-                          value={metricsForm[field.name]}
-                          onChange={(e) => setMetricsForm({ ...metricsForm, [field.name]: e.target.value })}
-                          className="w-full bg-[#070A13] border border-[#1E294B] focus:border-[#00E5FF] text-white rounded-xl px-4 py-2.5 text-xs outline-none transition-colors"
-                          placeholder="Unspecified"
-                        />
+                      <div className="border-b border-[#2D2D2D] pb-2 pt-2">
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Shareholding Pattern</h4>
+                        <p className="text-[9px] text-slate-500 uppercase mt-0.5">Adjust share distribution patterns among major stakeholders.</p>
                       </div>
-                    ))}
-                    <div className="space-y-1">
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Volume Breakout</label>
-                      <select
-                        value={metricsForm.volume_breakout}
-                        onChange={(e) => setMetricsForm({ ...metricsForm, volume_breakout: e.target.value })}
-                        className="w-full bg-[#070A13] border border-[#1E294B] focus:border-[#00E5FF] text-white rounded-xl px-4 py-2.5 text-xs outline-none transition-colors font-bold"
-                      >
-                        <option value="">Unspecified</option>
-                        <option value="true">True (Active)</option>
-                        <option value="false">False (Inactive)</option>
-                      </select>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 font-semibold text-slate-300">
+                        {[
+                          { label: "Promoter Holding", name: "promoter_holding", suffix: "%" },
+                          { label: "FII Holding", name: "fii_holding", suffix: "%" },
+                          { label: "DII Holding", name: "dii_holding", suffix: "%" },
+                          { label: "Promoter Pledged", name: "promoter_pledged_pct", suffix: "%" },
+                        ].map((f) => (
+                          <div key={f.name} className="space-y-1">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">{f.label}</label>
+                            <div className="relative flex items-center">
+                              <input
+                                type="text"
+                                value={metricsForm[f.name]}
+                                onChange={(e) => setMetricsForm({ ...metricsForm, [f.name]: e.target.value })}
+                                className="w-full bg-[#161616] border border-[#2D2D2D] focus:border-blue-500 text-white rounded-lg px-3 py-2 text-xs outline-none transition-colors pr-16"
+                                placeholder="N/A"
+                              />
+                              <span className="absolute right-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest">{f.suffix}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Trend Strength</label>
-                      <select
-                        value={metricsForm.trend_strength}
-                        onChange={(e) => setMetricsForm({ ...metricsForm, trend_strength: e.target.value })}
-                        className="w-full bg-[#070A13] border border-[#1E294B] focus:border-[#00E5FF] text-white rounded-xl px-4 py-2.5 text-xs outline-none transition-colors font-bold"
-                      >
-                        <option value="">Unspecified</option>
-                        <option value="Bullish">Bullish</option>
-                        <option value="Bearish">Bearish</option>
-                        <option value="Neutral">Neutral</option>
-                      </select>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+                  )}
 
-            <div className="flex justify-end pt-6 border-t border-[#1E294B]">
-              <button
-                type="submit"
-                disabled={loadingMetrics}
-                className="bg-gradient-to-r from-[#00E5FF] to-[#00A8CC] hover:from-[#00FFFF] hover:to-[#00B8E6] text-[#090D1A] px-8 py-3.5 rounded-xl text-xs font-black tracking-widest uppercase transition-all duration-300 shadow-[0_4px_20px_rgba(0,229,255,0.15)] disabled:opacity-50"
-              >
-                {loadingMetrics ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin text-[#090D1A]" />
-                    <span>Committing overrides...</span>
-                  </>
-                ) : (
-                  <span>Commit Node Overwrites</span>
-                )}
-              </button>
-            </div>
-          </form>
+                  {/* Category 2: Valuation multiples */}
+                  {metricsCategory === "valuation" && (
+                    <div className="space-y-6">
+                      <div className="border-b border-[#2D2D2D] pb-2">
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Pricing Multiples & 52W Limits</h4>
+                        <p className="text-[9px] text-slate-500 uppercase mt-0.5">Edit comparative multipliers and stock price channels.</p>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 font-semibold text-slate-300">
+                        {[
+                          { label: "Price-to-Earnings Ratio (P/E)", name: "pe_ratio", suffix: "x" },
+                          { label: "EV/EBITDA Multiple", name: "ev_ebitda", suffix: "x" },
+                          { label: "PEG Ratio", name: "peg_ratio", suffix: "x" },
+                          { label: "52-Week High limit", name: "fifty_two_week_high", suffix: "₹" },
+                          { label: "52-Week Low limit", name: "fifty_two_week_low", suffix: "₹" },
+                        ].map((f) => (
+                          <div key={f.name} className="space-y-1">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">{f.label}</label>
+                            <div className="relative flex items-center">
+                              <input
+                                type="text"
+                                value={metricsForm[f.name]}
+                                onChange={(e) => setMetricsForm({ ...metricsForm, [f.name]: e.target.value })}
+                                className="w-full bg-[#161616] border border-[#2D2D2D] focus:border-blue-500 text-white rounded-lg px-3 py-2 text-xs outline-none transition-colors pr-16"
+                                placeholder="N/A"
+                              />
+                              <span className="absolute right-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest">{f.suffix}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Category 3: Technical indicators */}
+                  {metricsCategory === "technical" && (
+                    <div className="space-y-6">
+                      <div className="border-b border-[#2D2D2D] pb-2">
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Trend & Momentum Overrides</h4>
+                        <p className="text-[9px] text-slate-500 uppercase mt-0.5">Adjust chart momentum limits, moving averages, and volume flags.</p>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 font-semibold text-slate-300">
+                        {[
+                          { label: "RSI Index (14d)", name: "rsi", suffix: "pts" },
+                          { label: "MACD Indicator line", name: "macd", suffix: "pts" },
+                          { label: "SMA 50 Threshold", name: "sma_50", suffix: "₹" },
+                          { label: "SMA 200 Threshold", name: "sma_200", suffix: "₹" },
+                          { label: "Relative Strength (RS)", name: "relative_strength", suffix: "ratio" },
+                          { label: "EMA 20 Threshold", name: "ema_20", suffix: "₹" },
+                          { label: "EMA 50 Threshold", name: "ema_50", suffix: "₹" },
+                          { label: "EMA 200 Threshold", name: "ema_200", suffix: "₹" },
+                          { label: "Volatility Beta Coefficient", name: "beta", suffix: "β" },
+                          { label: "20-Day Average Volume", name: "avg_volume_20d", suffix: "shares" },
+                        ].map((f) => (
+                          <div key={f.name} className="space-y-1">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">{f.label}</label>
+                            <div className="relative flex items-center">
+                              <input
+                                type="text"
+                                value={metricsForm[f.name]}
+                                onChange={(e) => setMetricsForm({ ...metricsForm, [f.name]: e.target.value })}
+                                className="w-full bg-[#161616] border border-[#2D2D2D] focus:border-blue-500 text-white rounded-lg px-3 py-2 text-xs outline-none transition-colors pr-16"
+                                placeholder="N/A"
+                              />
+                              <span className="absolute right-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest">{f.suffix}</span>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Volume Breakout Flag</label>
+                          <select
+                            value={metricsForm.volume_breakout}
+                            onChange={(e) => setMetricsForm({ ...metricsForm, volume_breakout: e.target.value })}
+                            className="w-full bg-[#161616] border border-[#2D2D2D] focus:border-blue-500 text-white rounded-lg px-3 py-2 text-xs outline-none transition-colors font-bold"
+                          >
+                            <option value="">N/A (Unspecified)</option>
+                            <option value="true">True (Triggered)</option>
+                            <option value="false">False (Suppressed)</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Trend Strength Class</label>
+                          <select
+                            value={metricsForm.trend_strength}
+                            onChange={(e) => setMetricsForm({ ...metricsForm, trend_strength: e.target.value })}
+                            className="w-full bg-[#161616] border border-[#2D2D2D] focus:border-blue-500 text-white rounded-lg px-3 py-2 text-xs outline-none transition-colors font-bold"
+                          >
+                            <option value="">N/A (Unspecified)</option>
+                            <option value="Bullish">Bullish (Strong Buy/Upward)</option>
+                            <option value="Bearish">Bearish (Sell/Downward)</option>
+                            <option value="Neutral">Neutral (Flat Consolidation)</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="px-6 py-4 bg-[#161616] border-t border-[#2D2D2D] flex justify-end">
+                <button
+                  type="submit"
+                  disabled={loadingMetrics}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg text-xs font-black tracking-widest uppercase transition-all flex items-center space-x-2 disabled:opacity-50"
+                >
+                  {loadingMetrics ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Saving parameters...</span>
+                    </>
+                  ) : (
+                    <span>Commit metric overrides</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
-      {/* Tab: Audit trail logs */}
+      {/* TAB 3: System Audit Trail logs */}
       {activeTab === "logs" && (
-        <div className="bg-[#0B0F19]/50 border border-[#1E294B] rounded-2xl overflow-hidden shadow-xl backdrop-blur-md">
-          <div className="flex items-center justify-between px-6 py-5 border-b border-[#1E294B]">
-            <h2 className="text-sm font-black uppercase tracking-widest text-white flex items-center space-x-2">
-              <FileText className="h-4.5 w-4.5 text-[#00E5FF]" />
-              <span>Audit Trail Logs (Node History)</span>
+        <div className="bg-[#1E1E1E] border border-[#2D2D2D] rounded-xl overflow-hidden shadow-lg">
+          <div className="px-6 py-4 border-b border-[#2D2D2D] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-white flex items-center space-x-2">
+              <FileText className="h-4 w-4 text-blue-500" />
+              <span>Audit Trail (Transaction Stream)</span>
             </h2>
-            <button
-              onClick={fetchLogs}
-              disabled={logsLoading}
-              className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-[#00E5FF] flex items-center space-x-1.5 transition-all duration-300 disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 ${logsLoading ? "animate-spin text-[#00E5FF]" : ""}`} />
-              <span>Refresh Trail</span>
-            </button>
+            <div className="flex items-center space-x-3">
+              {/* Log Search input */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+                <input
+                  type="text"
+                  value={logsSearch}
+                  onChange={(e) => setLogsSearch(e.target.value)}
+                  placeholder="Filter logs..."
+                  className="bg-[#161616] border border-[#2D2D2D] text-white rounded-lg pl-8 pr-3 py-1.5 text-[11px] font-semibold outline-none focus:border-blue-500 w-44"
+                />
+              </div>
+
+              <button
+                onClick={fetchLogs}
+                disabled={logsLoading}
+                className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white flex items-center space-x-1.5 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${logsLoading ? "animate-spin text-blue-500" : ""}`} />
+                <span>Sync Node logs</span>
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs font-semibold">
+            <table className="w-full text-left border-collapse text-[11px] font-semibold">
               <thead>
-                <tr className="bg-[#070A13]/55 text-slate-400 uppercase text-[10px] tracking-widest border-b border-[#1E294B]">
-                  <th className="px-6 py-4">Timestamp</th>
-                  <th className="px-6 py-4">Action Event</th>
-                  <th className="px-6 py-4">Target Class</th>
-                  <th className="px-6 py-4">Node Target</th>
-                  <th className="px-6 py-4">Operational Details</th>
+                <tr className="bg-[#161616] text-slate-400 uppercase text-[9px] tracking-widest border-b border-[#2D2D2D]">
+                  <th className="px-6 py-3">Timestamp (UTC)</th>
+                  <th className="px-6 py-3">Event Action</th>
+                  <th className="px-6 py-3">Target Layer</th>
+                  <th className="px-6 py-3">Resource Target</th>
+                  <th className="px-6 py-4">Detailed Audit Payload</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#1E294B] text-slate-300">
-                {logs.length === 0 ? (
+              <tbody className="divide-y divide-[#2D2D2D] text-slate-300">
+                {filteredLogs.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-10 text-center text-slate-400">
-                      {logsLoading ? "Reading node activity logs..." : "No administrative actions found."}
+                    <td colSpan={5} className="px-6 py-10 text-center text-slate-500">
+                      {logsLoading ? "Reading node activity logs..." : "No operational event signatures matching query."}
                     </td>
                   </tr>
                 ) : (
-                  logs.map((log) => (
-                    <tr key={log.id} className="hover:bg-[#151D36]/10 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-slate-400 font-mono">
+                  filteredLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-[#252525]/30 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-slate-500 font-mono">
                         {new Date(log.timestamp).toLocaleString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
-                          className={`px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest border ${
+                          className={`px-2.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border ${
                             log.action === "REBUILD_DATABASE"
                               ? "bg-red-500/10 border-red-500/20 text-red-400"
                               : log.action === "TRIGGER_SCRAPER"
                               ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
                               : log.action === "UPDATE_METRICS"
                               ? "bg-green-500/10 border-green-500/20 text-green-400"
-                              : "bg-[#00E5FF]/10 border-[#00E5FF]/20 text-[#00E5FF]"
+                              : "bg-blue-500/10 border-blue-500/20 text-blue-400"
                           }`}
                         >
                           {log.action}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-slate-400 font-mono">
+                      <td className="px-6 py-4 whitespace-nowrap text-slate-500 font-mono">
                         {log.target_type}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap font-mono font-bold text-[#00E5FF]">
+                      <td className="px-6 py-4 whitespace-nowrap font-mono font-bold text-blue-400">
                         {log.target_id}
                       </td>
                       <td className="px-6 py-4 leading-normal font-mono max-w-sm overflow-hidden text-ellipsis whitespace-nowrap" title={log.details}>

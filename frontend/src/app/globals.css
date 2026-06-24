@@ -3,66 +3,99 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
-  --bg-primary: #080A10;
-  --bg-secondary: #0E121E;
-  --bg-tertiary: #161B2B;
-  --border-color: #1E2538;
+  color-scheme: light dark;
+  
+  /* Light Theme variables - matches provided light workspace */
+  --bg-primary: #F3F3F3;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #EFEFEF;
+  --border-color: #E2E8F0;
+  --text-primary: #1C1C1E;
+  --text-secondary: #6B7280;
+  --cyan-accent: #2563EB;
+  --teal-accent: #10B981;
+  
+  --grid-line-color: rgba(0, 0, 0, 0.04);
+}
+
+.dark {
+  /* Dark Theme variables - matches provided dark workspace */
+  --bg-primary: #161616;
+  --bg-secondary: #222222;
+  --bg-tertiary: #2D2D2D;
+  --border-color: #3C3C3C;
+  --text-primary: #E0E0E0;
+  --text-secondary: #8E8E8E;
   --cyan-accent: #00E5FF;
   --teal-accent: #00F5D4;
+  
+  --grid-line-color: rgba(255, 255, 255, 0.02);
 }
 
 body {
   background-color: var(--bg-primary);
-  color: #F1F5F9;
+  background-image: 
+    linear-gradient(to right, var(--grid-line-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line-color) 1px, transparent 1px);
+  background-size: 4rem 4rem;
+  color: var(--text-primary);
   font-family: 'Outfit', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   margin: 0;
   padding: 0;
   min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 /* Glassmorphism utility */
 .glass-panel {
-  background: rgba(14, 18, 30, 0.75);
-  backdrop-filter: blur(12px);
+  background: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.dark .glass-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
 }
 
 .glass-card-hover {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass-card-hover:hover {
   transform: translateY(-2px);
-  border-color: rgba(0, 229, 255, 0.35);
+  border-color: var(--cyan-accent);
   box-shadow: 0 8px 30px rgba(0, 229, 255, 0.05);
 }
 
 .glass-button {
-  background: linear-gradient(135deg, rgba(0, 229, 255, 0.08), rgba(0, 245, 212, 0.03));
-  border: 1px solid rgba(0, 229, 255, 0.25);
-  transition: all 0.25s ease;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  transition: all 0.2s ease;
 }
 
 .glass-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(0, 229, 255, 0.18), rgba(0, 245, 212, 0.1));
-  border: 1px solid rgba(0, 229, 255, 0.5);
-  box-shadow: 0 0 15px rgba(0, 229, 255, 0.15);
+  background: var(--bg-secondary);
+  border-color: var(--cyan-accent);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.1);
 }
 
 .glow-cyan {
-  text-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.25);
 }
 
 .glow-border {
-  box-shadow: 0 0 10px rgba(0, 229, 255, 0.1);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.08);
 }
 
 /* Custom Webkit scrollbar for premium feel */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -76,4 +109,35 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--cyan-accent);
+}
+
+/* Global overrides for arbitrary tailwind dark selectors to enforce matte-IDE theme */
+.dark .dark\:bg-\[\#0E121E\]\/60,
+.dark .dark\:bg-\[\#0E121E\]\/80,
+.dark .dark\:bg-\[\#0E121E\]\/30,
+.dark .dark\:bg-\[\#0B0F19\]\/40,
+.dark .dark\:bg-\[\#161B26\] {
+  background-color: var(--bg-secondary) !important;
+}
+
+.dark .dark\:bg-\[\#0E121E\] {
+  background-color: var(--bg-secondary) !important;
+}
+
+.dark .dark\:bg-\[\#090D1A\] {
+  background-color: var(--bg-primary) !important;
+}
+
+.dark .dark\:bg-\[\#0F1322\] {
+  background-color: var(--bg-tertiary) !important;
+}
+
+.dark .dark\:border-\[\#1E2538\]\/70,
+.dark .dark\:border-\[\#1E2538\]\/20,
+.dark .dark\:border-\[\#1E2538\],
+.dark .dark\:border-\[\#151D36\],
+.dark .dark\:border-\[\#1A2035\],
+.dark .dark\:border-\[\#2D3753\],
+.dark .dark\:border-\[\#1A2035\]\/70 {
+  border-color: var(--border-color) !important;
 }
